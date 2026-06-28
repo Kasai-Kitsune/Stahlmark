@@ -2,8 +2,8 @@
 
 A wireframe raycaster FPS. Quake-esque movement on a Wolfenstein-esque-style engine (my hope anyway), arcade lives instead of roguelike runs, procedurally generated ring-based rooms.
 
-> **Status: Pre-Alpha**
-> Core loop is playable but unbalanced, unfinished. Multiple enemy types now present. Expect bugs, placeholder art, and potentially breaking changes between commits.
+> **Status: Alpha!**
+> Core loop is playable, has a semblance of balance, but unfinished. Multiple enemy types now present. Expect bugs, placeholder art, and potentially breaking changes between commits.
 
 ---
 
