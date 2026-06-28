@@ -3,7 +3,7 @@
 A wireframe raycaster FPS. Quake-esque movement on a Wolfenstein-esque-style engine (my hope anyway), arcade lives instead of roguelike runs, procedurally generated ring-based rooms.
 
 > **Status: Pre-Alpha**
-> Core loop is playable but unbalanced, unfinished, and missing most enemy types. Expect bugs, placeholder art, and potentially breaking changes between commits.
+> Core loop is playable but unbalanced, unfinished. Multiple enemy types now present. Expect bugs, placeholder art, and potentially breaking changes between commits.
 
 ---
 
@@ -26,11 +26,12 @@ A wireframe raycaster FPS. Quake-esque movement on a Wolfenstein-esque-style eng
 - Raycaster renderer (320 rays, 60° FOV) with Y-shearing for vertical look
 - Quake-style movement and collision
 - HUD: HP bar, armor bar, ring counter, reticle
-- Procedurally generated 5x5 (Will someday be infinite) ring-based room grid (start room, arenas, caches, ambushes, gauntlets, dark rooms)
+- Procedurally generated infinite ring-based room grid (start room, arenas, caches, ambushes, gauntlets, dark rooms)
 - Ring lock system: clearing a ring locks the door back to the previous ring
 - Hitscan firing
-- First enemy type (small, single behavior)
-- In-game debug menu
+- Multiple enemy types (Krabbe, Bulwark, Skytter) with distinct behaviors
+- In-game debug menu (room clear + enemy spawning)
+- Weapon switching and ammo system
 
 ---
 
