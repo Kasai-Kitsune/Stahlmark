@@ -1,0 +1,3344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="screen-orientation" content="landscape">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>STAHLMARK</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: 'Courier New', monospace;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      position: fixed;
+      top: 0; left: 0;
+    }
+    #game-container {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      width: min(100vw, 177.78vh);
+      height: min(56.25vw, 100vh);
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #000;
+      transition: transform 0.5s ease-out;
+    }
+    /* Death rotation – falls sideways */
+    canvas.dead {
+      transform: translate(-50%, -50%) rotate(90deg);
+    }
+    #click-prompt {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.7);
+      font-size: 1.1rem;
+      letter-spacing: 0.18em;
+      text-align: center;
+      cursor: pointer;
+      pointer-events: auto;
+      z-index: 20;
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      transition: opacity 0.3s;
+    }
+    #click-prompt.hidden { opacity: 0; pointer-events: none; }
+    #click-prompt span { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+    #rotate-warning {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.85rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      background: rgba(0,0,0,0.95);
+      z-index: 40;
+      position: absolute;
+      inset: 0;
+    }
+    #rotate-warning.active { display: flex; }
+    #joystick-zone {
+      display: none;
+      position: absolute;
+      bottom: 8%; left: 6%;
+      width: 130px; height: 130px;
+      pointer-events: auto;
+      z-index: 15;
+    }
+    #joystick-zone.active { display: block; }
+    #joystick-base {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 110px; height: 110px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.03);
+      pointer-events: none;
+    }
+    #joystick-thumb {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.22);
+      border: 1.5px solid rgba(255,255,255,0.32);
+      pointer-events: none;
+    }
+    #look-zone {
+      display: none;
+      position: absolute;
+      top: 0; right: 0;
+      width: 50%; height: 100%;
+      pointer-events: auto;
+      z-index: 14;
+    }
+    #look-zone.active { display: block; }
+    #menu-btn {
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 36px; height: 36px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      color: rgba(255,255,255,0.65);
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 25;
+      pointer-events: auto;
+      touch-action: auto;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition: background 0.15s;
+      backdrop-filter: blur(4px);
+    }
+    #menu-btn:hover, #menu-btn:active { background: rgba(255,255,255,0.22); color:#fff; }
+    #fullscreen-btn {
+      position: absolute;
+      top: 10px; right: 52px;
+      width: 36px; height: 36px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      color: rgba(255,255,255,0.65);
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 25;
+      pointer-events: auto;
+      touch-action: auto;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition: background 0.15s;
+      backdrop-filter: blur(4px);
+    }
+    #fullscreen-btn:hover, #fullscreen-btn:active { background: rgba(255,255,255,0.22); color:#fff; }
+    #pause-menu {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(3px);
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      pointer-events: auto;
+      touch-action: auto;
+    }
+    #pause-menu.open { display: flex; }
+    .menu-panel {
+      background: #0e0e0e;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 22px 22px 16px;
+      max-width: 300px; width: 80%;
+      color: #ddd;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.9);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      touch-action: auto;
+    }
+    .menu-panel h3 {
+      font-size: 0.9rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #bbb;
+      font-weight: 400;
+    }
+    .setting-row { display: flex; align-items: center; gap: 10px; }
+    .setting-row label {
+      flex: 1; font-size: 0.8rem; letter-spacing: 0.08em;
+      touch-action: auto; user-select: auto; -webkit-user-select: auto;
+    }
+    .setting-row input[type=range] { flex: 2; accent-color: #cc1111; touch-action: auto; }
+    .resume-btn {
+      padding: 7px 14px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 7px;
+      color: #ccc;
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      align-self: flex-end;
+      touch-action: auto;
+      transition: background 0.15s;
+    }
+    .resume-btn:hover { background: rgba(255,255,255,0.16); }
+    #debug-menu {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(3px);
+      align-items: center;
+      justify-content: center;
+      z-index: 31;
+      pointer-events: auto;
+      touch-action: auto;
+    }
+    #debug-menu.open { display: flex; }
+    .debug-panel {
+      background: #0e0e0e;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 22px 22px 16px;
+      max-width: 340px;
+      width: 80%;
+      color: #ddd;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.9);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      touch-action: auto;
+    }
+    .debug-panel h3 {
+      font-size: 0.9rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #bbb;
+      font-weight: 400;
+      margin-bottom: 4px;
+      grid-column: 1 / -1;
+    }
+    .debug-btn {
+      padding: 7px 8px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid #cc1111;
+      border-radius: 6px;
+      color: #ddd;
+      font-family: 'Courier New', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      touch-action: auto;
+      transition: background 0.15s;
+    }
+    .debug-btn:hover { background: rgba(204,17,17,0.15); }
+    .debug-btn.span-2 { grid-column: 1 / -1; }
+
+    /* WEAPON SWITCHER */
+    #weapon-boxes {
+      position: absolute;
+      bottom: 8px;
+      right: 10px;
+      display: flex;
+      gap: 6px;
+      z-index: 16;
+      pointer-events: auto;
+      touch-action: auto;
+    }
+    .weapon-box {
+      width: 36px;
+      height: 36px;
+      border: 1.5px solid rgba(255,255,255,0.65);
+      border-radius: 4px;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      position: relative;
+      overflow: visible;
+    }
+    .weapon-box img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      image-rendering: auto;
+      pointer-events: none;
+    }
+    .weapon-box.selected {
+      border-color: #cc1111;
+      background: rgba(204,17,17,0.12);
+    }
+    .weapon-box:active {
+      background: rgba(255,255,255,0.1);
+    }
+    .ammo-count {
+      position: absolute;
+      top: -16px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      color: #ffff00;
+      font-size: 9px;
+      font-family: 'Courier New', monospace;
+      pointer-events: none;
+      line-height: 1;
+    }
+
+    /* Fire button (mobile only) */
+    #fire-btn {
+      position: absolute;
+      bottom: 60px;
+      right: 140px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255,0,0,0.2);
+      border: 2px solid rgba(255,255,255,0.5);
+      color: #fff;
+      font-size: 13px;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 17;
+      pointer-events: auto;
+      touch-action: auto;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Interact button */
+    #interact-btn {
+      position: absolute;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      background: rgba(128,0,128,0.5);
+      border: 2px solid #ff00ff;
+      color: #fff;
+      font-size: 18px;
+      font-family: 'Courier New', monospace;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 18;
+      pointer-events: auto;
+      touch-action: auto;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Death screen overlay */
+    #death-screen {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(2px);
+      align-items: center;
+      justify-content: center;
+      z-index: 35;
+      pointer-events: auto;
+      touch-action: auto;
+    }
+    #death-screen.active {
+      display: flex;
+    }
+    .death-box {
+      background: #0e0e0e;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 22px 22px 16px;
+      max-width: 300px;
+      width: 80%;
+      color: #ddd;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.9);
+      text-align: center;
+      touch-action: auto;
+    }
+    .death-box h2 {
+      font-size: 1.4rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #cc1111;
+      margin-bottom: 12px;
+    }
+    .respawn-btn {
+      padding: 8px 18px;
+      background: rgba(204,17,17,0.15);
+      border: 1px solid #cc1111;
+      border-radius: 8px;
+      color: #ddd;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+      touch-action: auto;
+      transition: background 0.15s;
+    }
+    .respawn-btn:hover { background: rgba(204,17,17,0.3); }
+  </style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="canvas" width="640" height="360"></canvas>
+  <div id="click-prompt"><span>CLICK TO PLAY</span></div>
+  <div id="rotate-warning">
+    <span style="font-size:2rem;opacity:0.4">&#8635;</span>
+    <span>ROTATE DEVICE</span>
+  </div>
+  <button id="fullscreen-btn" aria-label="Fullscreen">⛶</button>
+  <button id="menu-btn" aria-label="Menu">&#9881;</button>
+  <div id="pause-menu">
+    <div class="menu-panel">
+      <h3>Settings</h3>
+      <div class="setting-row">
+        <label for="sens-slider">Sensitivity</label>
+        <input type="range" id="sens-slider" min="0.1" max="3.0" step="0.1" value="1.0">
+      </div>
+      <button class="resume-btn" id="resume-btn">RESUME</button>
+      <div style="display:flex;justify-content:space-between;width:100%;">
+        <button class="resume-btn" id="debug-btn" style="align-self:flex-start;">DEBUG</button>
+        <button class="resume-btn" id="unstuck-btn" style="align-self:flex-end;">UN-STUCK</button>
+      </div>
+    </div>
+  </div>
+  <div id="debug-menu">
+    <div class="debug-panel">
+      <h3>DEBUG CONSOLE</h3>
+      <button class="debug-btn" id="dbg-clear">ROOM CLEAR</button>
+      <button class="debug-btn" id="dbg-spawn">SPAWN KRABBE</button>
+      <button class="debug-btn" id="dbg-spawn-bulwark">SPAWN BULWARK</button>
+      <button class="debug-btn" id="dbg-spawn-skytter">SPAWN SKYTTER</button>
+      <button class="debug-btn span-2" id="dbg-back" style="border-color:rgba(255,255,255,0.2);">BACK</button>
+    </div>
+  </div>
+  <div id="joystick-zone">
+    <div id="joystick-base"></div>
+    <div id="joystick-thumb"></div>
+  </div>
+  <div id="look-zone"></div>
+  <div id="weapon-boxes">
+    <div class="weapon-box selected" data-weapon="0" title="Pistol (1)">
+      <img src="Nåde-asset.webp" alt="Pistol" draggable="false">
+      <span class="ammo-count">15</span>
+    </div>
+    <div class="weapon-box" data-weapon="1" title="AR (2)">
+      <img src="Gungnir-asset.webp" alt="AR" draggable="false">
+      <span class="ammo-count">30</span>
+    </div>
+    <div class="weapon-box" data-weapon="2" title="Sniper (3)">
+      <img src="Klarhet-asset.webp" alt="Sniper" draggable="false">
+      <span class="ammo-count">7</span>
+    </div>
+  </div>
+  <button id="fire-btn">FIRE</button>
+  <button id="interact-btn">E</button>
+
+  <!-- DEATH SCREEN -->
+  <div id="death-screen">
+    <div class="death-box">
+      <h2>YOU DIED</h2>
+      <p id="death-score" style="font-size:1rem;letter-spacing:0.1em;color:#ffff00;margin-bottom:12px;">Score 0</p>
+      <button class="respawn-btn" id="respawn-btn">RESPAWN</button>
+      <div id="death-stats" style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.12);font-size:0.85rem;letter-spacing:0.08em;color:#ffff00;line-height:1.6;">
+        <div>Krabbes: <span id="stat-krabbes">0</span> killed</div>
+        <div>Bulwarks: <span id="stat-bulwarks">0</span> killed</div>
+        <div>Skytters: <span id="stat-skytters">0</span> killed</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════
+//  AUDIO SETUP
+// ═══════════════════════════════════════════════════════
+let audioCtx, masterGain;
+function initAudioIfNeeded() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.5;
+  masterGain.connect(audioCtx.destination);
+}
+
+// External weapon sounds
+const pistolShotSound = new Audio('10mm_shot.mp3');
+const sniperShotSound = new Audio('sniper_shot.mp3');
+const boltActionSound = new Audio('bolt_action.mp3');
+pistolShotSound.preload = 'auto';
+sniperShotSound.preload = 'auto';
+boltActionSound.preload = 'auto';
+
+const roomClearSound = new Audio('Room_Clear.mp3');
+roomClearSound.preload = 'auto';
+
+const bulwarkDeathSound = new Audio('Bulwark-death.mp3');
+const bulwarkAggressiveSound = new Audio('Bulwark-aggressive.mp3');
+const skytterShotSound = new Audio('Skytter-shot.mp3');
+bulwarkDeathSound.preload = 'auto';
+bulwarkAggressiveSound.preload = 'auto';
+skytterShotSound.preload = 'auto';
+
+function noiseSource() {
+  const bufSize = audioCtx.sampleRate * 2;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  return src;
+}
+
+function makeDistortion(amount) {
+  const waveShaper = audioCtx.createWaveShaper();
+  const curve = new Float32Array(44100);
+  const deg = Math.PI / 180;
+  for (let i = 0; i < 44100; i++) {
+    const x = (i * 2) / 44100 - 1;
+    curve[i] = (3 + amount) * x * 20 * deg / (Math.PI + amount * Math.abs(x));
+  }
+  waveShaper.curve = curve;
+  return waveShaper;
+}
+
+// ── Krabbe attack sound ──
+function playSmall_attack() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(220, now);
+  o.frequency.linearRampToValueAtTime(480, now + 0.30);
+  const dist = makeDistortion(200);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.linearRampToValueAtTime(0.32, now + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
+  o.connect(dist).connect(g).connect(masterGain);
+  o.start(now); o.stop(now + 0.36);
+  for (let i = 0; i < 6; i++) {
+    const t = now + 0.04 + i * 0.055;
+    const b = audioCtx.createOscillator(); b.type = 'square'; b.frequency.value = 1000;
+    const bg = audioCtx.createGain();
+    bg.gain.setValueAtTime(0.0001, t);
+    bg.gain.linearRampToValueAtTime(0.22, t + 0.004);
+    bg.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+    b.connect(bg).connect(masterGain);
+    b.start(t); b.stop(t + 0.05);
+  }
+  const n = noiseSource();
+  const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 0.9;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(0.0001, now);
+  ng.gain.linearRampToValueAtTime(0.5, now + 0.005);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+  n.connect(bp).connect(ng).connect(masterGain);
+  n.start(now); n.stop(now + 0.3);
+}
+
+// ── Krabbe death sound ──
+function playKrabbe_death() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator(); o.type = 'sawtooth';
+  o.frequency.setValueAtTime(420, now);
+  o.frequency.exponentialRampToValueAtTime(35, now + 1.3);
+  const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(2000, now);
+  lp.frequency.exponentialRampToValueAtTime(180, now + 1.3);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.linearRampToValueAtTime(0.38, now + 0.03);
+  g.gain.setValueAtTime(0.38, now + 0.9);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 1.35);
+  o.connect(lp).connect(g).connect(masterGain);
+  o.start(now); o.stop(now + 1.4);
+  [0.18,0.34,0.52,0.71,0.93,1.1].forEach(dt => {
+    const t = now + dt;
+    const n = noiseSource();
+    const bp = audioCtx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 1200 + Math.random() * 1800; bp.Q.value = 6;
+    const ng = audioCtx.createGain();
+    ng.gain.setValueAtTime(0.0001, t);
+    ng.gain.linearRampToValueAtTime(0.35, t + 0.002);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.04 + Math.random() * 0.03);
+    n.connect(bp).connect(ng).connect(masterGain);
+    n.start(t); n.stop(t + 0.07);
+  });
+  const nc = noiseSource();
+  const lpc = audioCtx.createBiquadFilter(); lpc.type = 'lowpass';
+  lpc.frequency.setValueAtTime(3000, now + 0.7);
+  lpc.frequency.exponentialRampToValueAtTime(150, now + 1.32);
+  const gc = audioCtx.createGain();
+  gc.gain.setValueAtTime(0.0001, now + 0.7);
+  gc.gain.linearRampToValueAtTime(0.45, now + 0.72);
+  gc.gain.exponentialRampToValueAtTime(0.001, now + 1.35);
+  nc.connect(lpc).connect(gc).connect(masterGain);
+  nc.start(now + 0.7); nc.stop(now + 1.38);
+}
+
+// ── AR shot sound ──
+function playGungnir_Shot() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const t = now;
+  const o = audioCtx.createOscillator();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(155, t);
+  o.frequency.exponentialRampToValueAtTime(85, t + 0.06);
+  const og = audioCtx.createGain();
+  og.gain.setValueAtTime(0.0001, t);
+  og.gain.linearRampToValueAtTime(0.7, t + 0.002);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+  o.connect(og).connect(masterGain);
+  o.start(t); o.stop(t + 0.08);
+  const n = noiseSource();
+  const hp = audioCtx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 600;
+  const lp = audioCtx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3500;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(0.0001, t);
+  ng.gain.linearRampToValueAtTime(0.9, t + 0.002);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+  n.connect(hp).connect(lp).connect(ng).connect(masterGain);
+  n.start(t); n.stop(t + 0.1);
+}
+
+// ── Death sound (Double Amber Hybrid) ──
+function playDeathSound() {
+  initAudioIfNeeded();
+  if (!audioCtx) return;
+  const ctx = audioCtx;
+  const now = ctx.currentTime + 0.01;
+  const dest = masterGain || ctx.destination;
+
+  const curve = new Float32Array(65536);
+  for (let i = 0; i < 65536; i++) {
+    const x = (i - 32768) / 32768;
+    if (x < 0) {
+      curve[i] = Math.tanh(x * 2.5);
+    } else {
+      curve[i] = Math.min(1, Math.pow(x, 0.7) * 1.5);
+    }
+  }
+  const shaper = ctx.createWaveShaper();
+  shaper.curve = curve;
+
+  const master = ctx.createGain();
+  master.gain.value = 0.95;
+  master.connect(dest);
+
+  const t0 = now;
+  const t1 = t0 + 0.250;
+  const t2 = t1 + 0.080;
+  const t3 = t2 + 0.165;
+  const t4 = t3 + 0.130;
+  const t5 = t4 + 0.020;
+  const t6 = t5 + 0.300;
+  const totalDuration = t6 - t0;
+
+  // 1. Main Continuous Lead
+  const leadOsc = ctx.createOscillator();
+  const leadGain = ctx.createGain();
+  leadOsc.type = 'square';
+
+  leadOsc.frequency.setValueAtTime(680, t0);
+  leadOsc.frequency.linearRampToValueAtTime(780, t1);
+  leadOsc.frequency.setValueAtTime(780, t2);
+  leadOsc.frequency.linearRampToValueAtTime(620, t3);
+  leadOsc.frequency.setValueAtTime(590, t3);
+  leadOsc.frequency.setValueAtTime(590, t4);
+  leadOsc.frequency.setValueAtTime(390, t5);
+  leadOsc.frequency.setValueAtTime(390, t6);
+
+  leadGain.gain.setValueAtTime(0, t0);
+  leadGain.gain.linearRampToValueAtTime(0.40, t0 + 0.02);
+  leadGain.gain.setValueAtTime(0.40, t2);
+  leadGain.gain.linearRampToValueAtTime(0.25, t3);
+  leadGain.gain.linearRampToValueAtTime(0.20, t4);
+  leadGain.gain.linearRampToValueAtTime(0.05, t5);
+  leadGain.gain.linearRampToValueAtTime(0.15, t5 + 0.01);
+  leadGain.gain.exponentialRampToValueAtTime(0.001, t6);
+
+  leadOsc.connect(leadGain);
+  leadGain.connect(shaper);
+
+  // 2. Violent FM Bass Growl Engine
+  const bassCarrier = ctx.createOscillator();
+  const bassModulator = ctx.createOscillator();
+  const bassModGain = ctx.createGain();
+  const bassGain = ctx.createGain();
+  const bassFilter = ctx.createBiquadFilter();
+
+  bassCarrier.type = 'sawtooth';
+  bassModulator.type = 'sawtooth';
+
+  bassCarrier.frequency.setValueAtTime(45, t0);
+  bassCarrier.frequency.linearRampToValueAtTime(55, t1);
+  bassCarrier.frequency.setValueAtTime(55, t2);
+  bassCarrier.frequency.linearRampToValueAtTime(35, t3);
+  bassCarrier.frequency.setValueAtTime(33, t5);
+  bassCarrier.frequency.setValueAtTime(33, t6);
+
+  bassModulator.frequency.setValueAtTime(48, t0);
+  bassModulator.frequency.exponentialRampToValueAtTime(68, t5);
+
+  bassModGain.gain.setValueAtTime(5, t0);
+  bassModGain.gain.exponentialRampToValueAtTime(450, t5);
+
+  bassGain.gain.setValueAtTime(0.02, t0);
+  bassGain.gain.exponentialRampToValueAtTime(1.4, t5);
+  bassGain.gain.setValueAtTime(1.4, t5 + 0.100);
+  bassGain.gain.exponentialRampToValueAtTime(0.001, t6);
+
+  bassFilter.type = 'lowpass';
+  bassFilter.Q.setValueAtTime(28, t0);
+  bassFilter.frequency.setValueAtTime(90, t0);
+  bassFilter.frequency.exponentialRampToValueAtTime(950, t5);
+
+  bassModulator.connect(bassModGain);
+  bassModGain.connect(bassCarrier.frequency);
+  bassCarrier.connect(bassFilter);
+  bassFilter.connect(bassGain);
+  bassGain.connect(shaper);
+
+  // 3. White Noise Component
+  const bufferSize = ctx.sampleRate * totalDuration;
+  const noiseBuf = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const out = noiseBuf.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    out[i] = (Math.random() * 2 - 1) * 0.02;
+  }
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuf;
+  const nGain = ctx.createGain();
+
+  nGain.gain.setValueAtTime(0.05, t0);
+  nGain.gain.exponentialRampToValueAtTime(0.35, t5);
+  nGain.gain.exponentialRampToValueAtTime(0.001, t6);
+
+  noise.connect(nGain);
+  nGain.connect(shaper);
+
+  // 4. Final routing
+  shaper.connect(master);
+
+  leadOsc.start(t0);
+  bassModulator.start(t0);
+  bassCarrier.start(t0);
+  noise.start(t0);
+
+  leadOsc.stop(t6);
+  bassModulator.stop(t6);
+  bassCarrier.stop(t6);
+  noise.stop(t6);
+}
+
+// ── Skytter charge sound (0.75s, synced to aim state) ──
+let skytterNoiseBuffer = null;
+function playSkytterCharge() {
+  initAudioIfNeeded();
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const dur = 0.75;
+
+  const out = audioCtx.createGain();
+  out.gain.value = 0.9;
+  out.connect(masterGain);
+
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 3500;
+  lp.connect(out);
+
+  const ws = audioCtx.createWaveShaper();
+  ws.oversample = '4x';
+  const curve = new Float32Array(44100);
+  for (let i = 0; i < 44100; i++) {
+    const x = i * 2 / 44100 - 1;
+    curve[i] = (17 * x * 20 * Math.PI / 180) / (Math.PI + 14 * Math.abs(x));
+  }
+  ws.curve = curve;
+  ws.connect(lp);
+
+  // 1) saw 110→720
+  const s1 = audioCtx.createOscillator();
+  s1.type = 'sawtooth';
+  s1.frequency.setValueAtTime(110, t);
+  s1.frequency.exponentialRampToValueAtTime(720, t + 0.7);
+  const g1 = audioCtx.createGain();
+  g1.gain.setValueAtTime(0, t);
+  g1.gain.linearRampToValueAtTime(0.35, t + 0.05);
+  g1.gain.setValueAtTime(0.35, t + 0.67);
+  g1.gain.linearRampToValueAtTime(0.0001, t + 0.75);
+  s1.connect(g1).connect(ws);
+  s1.start(t);
+  s1.stop(t + dur);
+
+  // 2) triangle 220→1440
+  const s2 = audioCtx.createOscillator();
+  s2.type = 'triangle';
+  s2.frequency.setValueAtTime(220, t);
+  s2.frequency.exponentialRampToValueAtTime(1440, t + 0.7);
+  const g2 = audioCtx.createGain();
+  g2.gain.setValueAtTime(0, t);
+  g2.gain.linearRampToValueAtTime(0.18, t + 0.05);
+  g2.gain.linearRampToValueAtTime(0.0001, t + 0.72);
+  s2.connect(g2).connect(ws);
+  s2.start(t);
+  s2.stop(t + dur);
+
+  // 3) bandpassed noise
+  if (!skytterNoiseBuffer) {
+    skytterNoiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+    const d = skytterNoiseBuffer.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const n = audioCtx.createBufferSource();
+  n.buffer = skytterNoiseBuffer;
+  n.loop = true;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 900;
+  bp.Q.value = 1.2;
+  const gn = audioCtx.createGain();
+  gn.gain.setValueAtTime(0, t);
+  gn.gain.linearRampToValueAtTime(0.25, t + 0.6);
+  gn.gain.linearRampToValueAtTime(0.0001, t + 0.75);
+  n.connect(bp).connect(gn).connect(ws);
+  n.start(t);
+  n.stop(t + 0.76);
+
+  // 4) 8 clicks
+  for (let i = 0; i < 8; i++) {
+    const ct = t + i * 0.09;
+    const c = audioCtx.createOscillator();
+    c.type = 'square';
+    c.frequency.value = 1800;
+    const cg = audioCtx.createGain();
+    cg.gain.setValueAtTime(0, ct);
+    cg.gain.linearRampToValueAtTime(0.12, ct + 0.002);
+    cg.gain.exponentialRampToValueAtTime(0.001, ct + 0.008);
+    c.connect(cg).connect(ws);
+    c.start(ct);
+    c.stop(ct + 0.01);
+  }
+}
+
+// ── Skytter death sound (screech) ──
+function playSkytterDeath() {
+  initAudioIfNeeded();
+  if (!audioCtx) return;
+
+  const ctx = audioCtx;
+  const t0 = ctx.currentTime;
+  const dur = 1.0;
+
+  const master = ctx.createGain();
+  master.gain.value = 0.7;
+  const shaper = ctx.createWaveShaper();
+  const curve = new Float32Array(1024);
+  for (let i = 0; i < 1024; i++) {
+    const x = (i / 512) - 1;
+    curve[i] = Math.tanh(x * 4);
+  }
+  shaper.curve = curve;
+  shaper.connect(master).connect(masterGain);
+
+  // LAYER 1: FM-modulated main scream
+  const carrier = ctx.createOscillator();
+  carrier.type = 'sawtooth';
+  carrier.frequency.setValueAtTime(800, t0);
+  carrier.frequency.exponentialRampToValueAtTime(1600, t0 + dur * 0.15);
+  carrier.frequency.exponentialRampToValueAtTime(1100, t0 + dur * 0.5);
+  carrier.frequency.exponentialRampToValueAtTime(400, t0 + dur);
+
+  const mod = ctx.createOscillator();
+  mod.type = 'square';
+  mod.frequency.setValueAtTime(180, t0);
+  mod.frequency.exponentialRampToValueAtTime(90, t0 + dur);
+  const modGain = ctx.createGain();
+  modGain.gain.setValueAtTime(600, t0);
+  modGain.gain.exponentialRampToValueAtTime(200, t0 + dur);
+  mod.connect(modGain).connect(carrier.frequency);
+
+  // LAYER 2: Detuned partner
+  const carrier2 = ctx.createOscillator();
+  carrier2.type = 'sawtooth';
+  carrier2.detune.value = 17;
+  carrier2.frequency.setValueAtTime(810, t0);
+  carrier2.frequency.exponentialRampToValueAtTime(1620, t0 + dur * 0.15);
+  carrier2.frequency.exponentialRampToValueAtTime(1090, t0 + dur * 0.5);
+  carrier2.frequency.exponentialRampToValueAtTime(395, t0 + dur);
+  modGain.connect(carrier2.frequency);
+
+  // STRIDULATION: rapid AM chatter
+  const stridLFO = ctx.createOscillator();
+  stridLFO.type = 'square';
+  stridLFO.frequency.setValueAtTime(45, t0);
+  stridLFO.frequency.linearRampToValueAtTime(22, t0 + dur);
+  const stridDepth = ctx.createGain();
+  stridDepth.gain.value = 0.5;
+  const stridBase = ctx.createGain();
+  stridBase.gain.value = 0.5;
+  stridLFO.connect(stridDepth);
+
+  const screamGate = ctx.createGain();
+  screamGate.gain.value = 1;
+  stridDepth.connect(screamGate.gain);
+  stridBase.connect(screamGate.gain);
+
+  const screamEnv = ctx.createGain();
+  screamEnv.gain.setValueAtTime(0.0001, t0);
+  screamEnv.gain.exponentialRampToValueAtTime(0.55, t0 + 0.02);
+  screamEnv.gain.setValueAtTime(0.55, t0 + dur * 0.6);
+  screamEnv.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+  const formant = ctx.createBiquadFilter();
+  formant.type = 'bandpass';
+  formant.Q.value = 3;
+  formant.frequency.setValueAtTime(2200, t0);
+  formant.frequency.linearRampToValueAtTime(1400, t0 + dur);
+
+  carrier.connect(screamGate);
+  carrier2.connect(screamGate);
+  screamGate.connect(formant).connect(screamEnv).connect(shaper);
+
+  // LAYER 3: Hissy noise overlay
+  const noise = ctx.createBufferSource();
+  const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  noise.buffer = buf;
+
+  const nBP = ctx.createBiquadFilter();
+  nBP.type = 'bandpass';
+  nBP.Q.value = 4;
+  nBP.frequency.setValueAtTime(3000, t0);
+  nBP.frequency.exponentialRampToValueAtTime(1200, t0 + dur);
+  const nGate = ctx.createGain();
+  nGate.gain.value = 1;
+  stridDepth.connect(nGate.gain);
+  stridBase.connect(nGate.gain);
+  const nEnv = ctx.createGain();
+  nEnv.gain.setValueAtTime(0.0001, t0);
+  nEnv.gain.exponentialRampToValueAtTime(0.25, t0 + 0.03);
+  nEnv.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  noise.connect(nBP).connect(nGate).connect(nEnv).connect(shaper);
+
+  // LAYER 4: High shriek sparkle
+  const shriek = ctx.createOscillator();
+  shriek.type = 'square';
+  shriek.frequency.setValueAtTime(2400, t0);
+  shriek.frequency.exponentialRampToValueAtTime(3200, t0 + dur * 0.2);
+  shriek.frequency.exponentialRampToValueAtTime(1500, t0 + dur);
+  const shriekEnv = ctx.createGain();
+  shriekEnv.gain.setValueAtTime(0.0001, t0);
+  shriekEnv.gain.exponentialRampToValueAtTime(0.08, t0 + 0.05);
+  shriekEnv.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  shriek.connect(shriekEnv).connect(shaper);
+
+  // START
+  carrier.start(t0); carrier2.start(t0);
+  mod.start(t0); stridLFO.start(t0);
+  noise.start(t0); shriek.start(t0);
+
+  // STOP
+  carrier.stop(t0 + dur); carrier2.stop(t0 + dur);
+  mod.stop(t0 + dur); stridLFO.stop(t0 + dur);
+  noise.stop(t0 + dur); shriek.stop(t0 + dur);
+}
+
+// ═══════════════════════════════════════════════════════
+//  TUNABLE CONSTANTS
+// ═══════════════════════════════════════════════════════
+const MOVE_ACCEL   = 20.0;
+const MOVE_DECEL   = 16.0;
+const MAX_SPEED    = 5.0;
+const MOUSE_H_SENS = 0.0022;
+const MOUSE_V_SENS = 0.45;
+const PITCH_LIMIT  = 145;
+const COLL_RADIUS  = 0.22;  // player hitbox radius
+
+// Weapon fire rates (seconds per shot)
+const PISTOL_COOLDOWN = 60 / 150;
+const AR_COOLDOWN     = 60 / 400;
+const SNIPER_COOLDOWN = 60 / 37.5;
+
+// Weapon damage values
+const PISTOL_DAMAGE = 25;
+const AR_DAMAGE     = 15;
+const SNIPER_DAMAGE = 55;
+
+// Ammo caps
+const AMMO_CAPS = [30, 60, 15];
+
+// Enemy constants
+const KRABBE_SPEED       = MAX_SPEED * 1.6;           // same as player
+const KRABBE_HP          = 50;
+const KRABBE_HITBOX      = 0.8;                // radius in map units
+const KRABBE_SCALE       = 0.5;
+const KRABBE_SCORE       = 100;
+const ENEMY_STOP_DIST    = 1.3;                // distance from player centre before attack
+const KRABBE_ATTACK_DAMAGE = 25;
+const KRABBE_ATTACK_RANGE  = 1.5;
+const KRABBE_WINDUP_TIME   = 0.56;
+const KRABBE_COOLDOWN_TIME = 1.2;
+
+// ── BULWARK CONSTANTS ──
+const BULWARK_HP            = 100;
+const BULWARK_ARMOR         = 50;
+const BULWARK_SPEED         = 3.0;
+const BULWARK_ATTACK_DAMAGE = 35;
+const BULWARK_ATTACK_RANGE  = 2.0;
+const BULWARK_WINDUP_TIME   = 0.45;
+const BULWARK_COOLDOWN_TIME = 1.6;
+const BULWARK_HITBOX        = 1.0;
+const BULWARK_SCALE         = 0.65;
+const BULWARK_SCORE         = 250;
+
+// ── SKYTTER CONSTANTS ──
+const SKYTTER_HP              = 160;
+const SKYTTER_ARMOR           = 100;
+const SKYTTER_APPROACH_SPEED  = 2.5;
+const SKYTTER_RETREAT_SPEED   = 3.8;
+const SKYTTER_PREF_MIN        = 5.0;   // start firing at this distance
+const SKYTTER_PREF_MAX        = 7.0;   // close in if farther than this
+const SKYTTER_RETREAT_DIST    = 3.5;   // panic back if player inside this
+const SKYTTER_AIM_TIME        = 0.75;  // warning duration in seconds
+const SKYTTER_COOLDOWN_TIME   = 2.5;
+const SKYTTER_PROJ_SPEED      = 7.0;   // tiles per second
+const SKYTTER_PROJ_DAMAGE     = 40;
+const SKYTTER_HITBOX          = 0.75;
+const SKYTTER_SCALE           = 1.5;
+const SKYTTER_SCORE           = 200;
+const SKYTTER_LEAD_FACTOR     = 0.65;  // predictive aim strength
+
+// Enemy separation
+const ENEMY_SEPARATION_RADIUS = 1.5;           // repulsion radius
+const ENEMY_SEPARATION_STRENGTH = 0.3;         // blend factor for repulsion
+const ENEMY_PUSH_DIST = 0.6;                   // push apart if closer than this
+
+// ═══════════════════════════════════════════════════════
+//  MAP CONSTANTS (cell size remains fixed)
+// ═══════════════════════════════════════════════════════
+const CELL_SIZE   = 12; // 10 interior + 2 border walls
+const INTERIOR_SZ = CELL_SIZE - 2; // 10
+const MID         = Math.floor(CELL_SIZE / 2);
+const WALL_OFF    = CELL_SIZE - 1;
+const CENTER_GX = 2, CENTER_GY = 2;   // origin room grid
+
+// ═══════════════════════════════════════════════════════
+//  RENDERER CONSTANTS
+// ═══════════════════════════════════════════════════════
+const CW          = 640;
+const CH          = 360;
+const HALF_CH     = CH * 0.5;
+const NUM_RAYS    = 320;
+const STRIP_PX    = 2;
+const HFOV        = Math.PI / 3;
+const HALF_HFOV   = HFOV * 0.5;
+const RAY_DEPTH   = 24;
+const SHADE_FLOOR = 0.06;
+
+const SHADE_LUT = Array.from({ length: 256 }, (_, i) => {
+  const h = i.toString(16).padStart(2, '0');
+  return '#' + h + h + h;
+});
+
+// ═══════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════
+let playerHP     = 100;
+let playerArmor  = 112;
+let score        = 0;
+let krabbesKilled = 0;
+let bulwarksKilled = 0;
+let skyttersKilled = 0;
+const MAX_HP     = 100;
+const MAX_ARMOR  = 200;
+let currentRing  = 0;
+
+// Player death flag and blood effect
+let playerDead         = false;
+let deathTimestamp     = 0;
+const DEATH_BLOOD_DUR  = 1.5;  // seconds for blood wash
+let deathDrips         = [];    // array of drip data for blood effect
+
+// Ammo (starts at 50% of cap, roughly)
+let ammo = [8, 15, 4];
+
+// Weapon cooldown
+let lastFireTime = 0;
+
+// Auto-fire state (AR)
+let autoFireActive = false;
+
+// Tracers
+let tracers = [];
+
+// Enemies
+let enemies = [];
+
+// Projectiles (for Skytter)
+let projectiles = [];
+
+// Interactables (violet cubes)
+let interactables = [];
+let activeInteractable = null;  // the one within range
+
+// Popup messages (yellow text)
+let popupMessages = [];
+
+// Enemy sprite images
+const krabbeImg = new Image();
+krabbeImg.src = 'Krabbe-asset.png';
+const krabbeImg2 = new Image();
+krabbeImg2.src = 'Krabbe-Move1.png';
+
+// Bulwark sprite
+const bulwarkImg = new Image();
+bulwarkImg.src = 'Bulwark-asset.png';
+
+// Skytter sprite
+const skytterImg = new Image();
+skytterImg.src = 'Skytter-asset.png';
+const skytterImg2 = new Image();
+skytterImg2.src = 'Skytter-Move1.png';
+
+// Room entry delay
+const ROOM_LOCK_DELAY = 0.35;
+let roomEntryTimer     = 0;
+let pendingLockGX      = -1;
+let pendingLockGY      = -1;
+
+// ═══════════════════════════════════════════════════════
+//  DYNAMIC MAP DATA (infinite rings)
+// ═══════════════════════════════════════════════════════
+let roomMap = new Map();          // key "gx,gy" -> room object
+let mapTiles = new Map();         // key "tx,ty" -> tile value (0=open,1=wall,2=locked door)
+let maxRingGenerated = 1;         // highest ring number currently generated
+
+let playerRoomGX = CENTER_GX, playerRoomGY = CENTER_GY;
+
+// Tile access helpers
+function getMapTile(tx, ty) {
+  return mapTiles.get(`${tx},${ty}`) ?? 1;   // default to wall
+}
+
+function setMapTile(tx, ty, value) {
+  mapTiles.set(`${tx},${ty}`, value);
+}
+
+// ═══════════════════════════════════════════════════════
+//  ROOM GENERATION (dynamic)
+// ═══════════════════════════════════════════════════════
+
+function generateRoomsForRing(ring) {
+  const gxMin = CENTER_GX - ring, gxMax = CENTER_GX + ring;
+  const gyMin = CENTER_GY - ring, gyMax = CENTER_GY + ring;
+
+  // Only three room types for all non‑start rooms, equal chance
+  const roomTypes = ['cache', 'gauntlet', 'arena'];
+
+  // Collect new room coords first
+  const newCoords = [];
+  for (let gx = gxMin; gx <= gxMax; gx++) {
+    for (let gy = gyMin; gy <= gyMax; gy++) {
+      const roomRing = Math.max(Math.abs(gx - CENTER_GX), Math.abs(gy - CENTER_GY));
+      if (roomRing !== ring) continue;
+      const key = `${gx},${gy}`;
+      if (roomMap.has(key)) continue;
+      newCoords.push({ gx, gy });
+    }
+  }
+
+  // Add rooms to roomMap and carve their tile space
+  for (const { gx, gy } of newCoords) {
+    const ringVal = Math.max(Math.abs(gx - CENTER_GX), Math.abs(gy - CENTER_GY));
+    let type;
+    if (ringVal === 0) {
+      type = 'start';
+    } else {
+      type = roomTypes[Math.floor(Math.random() * roomTypes.length)];
+    }
+    const room = {
+      gridX: gx, gridY: gy,
+      ring: ringVal,
+      type,
+      entered: false,
+      cleared: false,
+      cacheGenerated: false,
+      spawnedEnemies: false
+    };
+    roomMap.set(`${gx},${gy}`, room);
+
+    // Carve interior
+    const startX = gx * CELL_SIZE;
+    const startY = gy * CELL_SIZE;
+    for (let dy = 0; dy < CELL_SIZE; dy++) {
+      for (let dx = 0; dx < CELL_SIZE; dx++) {
+        const tx = startX + dx, ty = startY + dy;
+        const isWall = (dx === 0 || dx === CELL_SIZE-1 || dy === 0 || dy === CELL_SIZE-1);
+        setMapTile(tx, ty, isWall ? 1 : 0);
+      }
+    }
+  }
+
+  // Connect doors between newly generated rooms and existing neighbours
+  for (const { gx, gy } of newCoords) {
+    const neighbors = [
+      { gx: gx+1, gy },
+      { gx: gx-1, gy },
+      { gx, gy: gy+1 },
+      { gx, gy: gy-1 }
+    ];
+    for (const nb of neighbors) {
+      const nbKey = `${nb.gx},${nb.gy}`;
+      if (roomMap.has(nbKey)) {
+        setCorridor(gx, gy, nb.gx, nb.gy, 0);  // open door
+      }
+    }
+  }
+
+  // If this ring > 1, lock the boundary between this ring and the previous ring
+  if (ring > 1) {
+    lockRingBoundary(ring - 1, ring);
+  }
+}
+
+function generateNextRingIfNeeded() {
+  const nextRing = maxRingGenerated + 1;
+  if (currentRing === maxRingGenerated && !roomMap.has(`${CENTER_GX + nextRing},${CENTER_GY}`) && !roomMap.has(`${CENTER_GX - nextRing},${CENTER_GY}`)) {
+    generateRoomsForRing(nextRing);
+    maxRingGenerated = nextRing;
+    console.log(`Generated ring ${nextRing}`);
+  }
+}
+
+function setCorridor(gx1, gy1, gx2, gy2, value) {
+  if (gx2 === gx1 + 1) {
+    setMapTile(gx1*CELL_SIZE + WALL_OFF, gy1*CELL_SIZE + MID, value);
+    setMapTile(gx1*CELL_SIZE + CELL_SIZE, gy1*CELL_SIZE + MID, value);
+  } else if (gx2 === gx1 - 1) {
+    setMapTile(gx1*CELL_SIZE, gy1*CELL_SIZE + MID, value);
+    setMapTile(gx1*CELL_SIZE - 1, gy1*CELL_SIZE + MID, value);
+  } else if (gy2 === gy1 + 1) {
+    setMapTile(gx1*CELL_SIZE + MID, gy1*CELL_SIZE + WALL_OFF, value);
+    setMapTile(gx1*CELL_SIZE + MID, gy1*CELL_SIZE + CELL_SIZE, value);
+  } else if (gy2 === gy1 - 1) {
+    setMapTile(gx1*CELL_SIZE + MID, gy1*CELL_SIZE, value);
+    setMapTile(gx1*CELL_SIZE + MID, gy1*CELL_SIZE - 1, value);
+  }
+}
+
+function lockRingBoundary(ringA, ringB) {
+  for (const [key, room] of roomMap) {
+    if (room.ring !== ringA) continue;
+    const gx = room.gridX, gy = room.gridY;
+    const neighbors = [
+      { gx: gx+1, gy },
+      { gx: gx-1, gy },
+      { gx, gy: gy+1 },
+      { gx, gy: gy-1 }
+    ];
+    for (const nb of neighbors) {
+      const nbRoom = roomMap.get(`${nb.gx},${nb.gy}`);
+      if (nbRoom && nbRoom.ring === ringB) {
+        setCorridor(gx, gy, nb.gx, nb.gy, 2);
+      }
+    }
+  }
+}
+
+function lockAllDoors(gx, gy) {
+  if (roomMap.has(`${gx+1},${gy}`)) setCorridor(gx, gy, gx+1, gy, 2);
+  if (roomMap.has(`${gx-1},${gy}`)) setCorridor(gx, gy, gx-1, gy, 2);
+  if (roomMap.has(`${gx},${gy+1}`)) setCorridor(gx, gy, gx, gy+1, 2);
+  if (roomMap.has(`${gx},${gy-1}`)) setCorridor(gx, gy, gx, gy-1, 2);
+}
+
+function unlockSidewaysOutward(gx, gy) {
+  const room = roomMap.get(`${gx},${gy}`);
+  if (!room) return;
+  const neighbors = [
+    { gx: gx+1, gy, key: `${gx+1},${gy}` },
+    { gx: gx-1, gy, key: `${gx-1},${gy}` },
+    { gx: gx, gy: gy+1, key: `${gx},${gy+1}` },
+    { gx: gx, gy: gy-1, key: `${gx},${gy-1}` }
+  ];
+  for (const nb of neighbors) {
+    const nbRoom = roomMap.get(nb.key);
+    if (!nbRoom) continue;
+    if (nbRoom.ring > room.ring) {
+      setCorridor(gx, gy, nb.gx, nb.gy, 0);
+    } else if (nbRoom.ring === room.ring) {
+      setCorridor(gx, gy, nb.gx, nb.gy, 0);
+    } else {
+      setCorridor(gx, gy, nb.gx, nb.gy, 2);
+    }
+  }
+}
+
+function getRoomAtTile(tx, ty) {
+  const gx = Math.floor(tx / CELL_SIZE);
+  const gy = Math.floor(ty / CELL_SIZE);
+  return roomMap.get(`${gx},${gy}`) || null;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ARMOR SYSTEM
+// ═══════════════════════════════════════════════════════
+function getArmorTier(armor) {
+  if (armor <= 0) return 1;
+  if (armor <= 74) return 2;
+  if (armor <= 149) return 3;
+  return 4;
+}
+
+function getDamageReduction(armor) {
+  const tier = getArmorTier(armor);
+  switch (tier) {
+    case 1: return 0.0;
+    case 2: return 0.20;
+    case 3: return 0.40;
+    case 4: return 0.60;
+    default: return 0.0;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ENEMY HIT DETECTION
+// ═══════════════════════════════════════════════════════
+function getEnemyHit(rayAngle, maxDist) {
+  let closestEnemy = null;
+  let closestDist = maxDist;
+  const cosA = Math.cos(rayAngle);
+  const sinA = Math.sin(rayAngle);
+
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+    const dx = enemy.x - P.x;
+    const dy = enemy.y - P.y;
+    const proj = dx * cosA + dy * sinA; // distance along ray
+    if (proj <= 0 || proj >= closestDist) continue;
+    const perpX = P.x + proj * cosA;
+    const perpY = P.y + proj * sinA;
+    const distToRay = Math.sqrt((enemy.x - perpX) ** 2 + (enemy.y - perpY) ** 2);
+    const hitboxRadius = enemy.type === 'bulwark' ? BULWARK_HITBOX : (enemy.type === 'skytter' ? SKYTTER_HITBOX : KRABBE_HITBOX);
+    if (distToRay <= hitboxRadius) {
+      closestDist = proj;
+      closestEnemy = enemy;
+    }
+  }
+  return closestEnemy ? { enemy: closestEnemy, dist: closestDist } : null;
+}
+
+// ═══════════════════════════════════════════════════════
+//  PLAYER STATE
+// ═══════════════════════════════════════════════════════
+const P = { x:0, y:0, a:0.0, pitch:0, vx:0, vy:0 };
+
+// ═══════════════════════════════════════════════════════
+//  GAME STATE (remaining)
+// ═══════════════════════════════════════════════════════
+let gamePaused      = false;
+let sensitivityMult = 1.0;
+let pointerLocked   = false;
+
+// ═══════════════════════════════════════════════════════
+//  DOM REFS
+// ═══════════════════════════════════════════════════════
+const canvas        = document.getElementById('canvas');
+const ctx           = canvas.getContext('2d');
+const clickPrompt   = document.getElementById('click-prompt');
+const rotateWarn    = document.getElementById('rotate-warning');
+const joystickZone  = document.getElementById('joystick-zone');
+const joystickThumb = document.getElementById('joystick-thumb');
+const lookZoneEl    = document.getElementById('look-zone');
+const menuBtnEl     = document.getElementById('menu-btn');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+const pauseMenuEl   = document.getElementById('pause-menu');
+const debugMenuEl   = document.getElementById('debug-menu');
+const sensSlider    = document.getElementById('sens-slider');
+const resumeBtnEl   = document.getElementById('resume-btn');
+const debugBtnEl    = document.getElementById('debug-btn');
+const fireBtn       = document.getElementById('fire-btn');
+const interactBtn   = document.getElementById('interact-btn');
+const container     = document.getElementById('game-container');
+const deathScreen   = document.getElementById('death-screen');
+const respawnBtn    = document.getElementById('respawn-btn');
+
+const dbgClear      = document.getElementById('dbg-clear');
+const dbgSpawn      = document.getElementById('dbg-spawn');
+const dbgSpawnBulwark = document.getElementById('dbg-spawn-bulwark');
+const dbgSpawnSkytter = document.getElementById('dbg-spawn-skytter');
+const dbgBack       = document.getElementById('dbg-back');
+
+// ═══════════════════════════════════════════════════════
+//  DEVICE DETECTION
+// ═══════════════════════════════════════════════════════
+const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+const isMobile = hasTouch && window.matchMedia('(pointer: coarse)').matches;
+
+// ═══════════════════════════════════════════════════════
+//  FULLSCREEN
+// ═══════════════════════════════════════════════════════
+function toggleFullscreen() {
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    } else if (el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen();
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+  }
+}
+
+fullscreenBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  toggleFullscreen();
+});
+fullscreenBtn.addEventListener('touchend', e => {
+  e.stopPropagation();
+  e.preventDefault();
+  lookTouchId = null;
+  toggleFullscreen();
+});
+
+// ═══════════════════════════════════════════════════════
+//  KEYBOARD
+// ═══════════════════════════════════════════════════════
+const K = {};
+const SUPPRESS = ['KeyW','KeyS','KeyA','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'];
+window.addEventListener('keydown', e => {
+  if (playerDead) return;  // ignore input while dead
+  K[e.code] = true;
+  if (SUPPRESS.includes(e.code)) e.preventDefault();
+  if (e.code === 'Escape') { e.preventDefault(); toggleMenu(); }
+  if (e.code === 'KeyF' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleFullscreen(); }
+  if (e.code === 'KeyE') { e.preventDefault(); tryInteract(); }
+});
+window.addEventListener('keyup', e => {
+  K[e.code] = false;
+  if (SUPPRESS.includes(e.code)) e.preventDefault();
+});
+
+// Mouse fire
+canvas.addEventListener('mousedown', e => {
+  if (playerDead) return;
+  if (gamePaused || !pointerLocked) return;
+  if (e.button === 0) {
+    if (currentWeapon === 2) fireWeapon();
+    else startAutoFire();
+  }
+});
+canvas.addEventListener('mouseup', e => {
+  if (e.button === 0) stopAutoFire();
+});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// ═══════════════════════════════════════════════════════
+//  POINTER LOCK + MOUSE LOOK
+// ═══════════════════════════════════════════════════════
+canvas.addEventListener('click', () => {
+  if (!isMobile && !gamePaused && !playerDead) canvas.requestPointerLock();
+});
+document.addEventListener('pointerlockchange', () => {
+  pointerLocked = (document.pointerLockElement === canvas);
+  if (pointerLocked)                 clickPrompt.classList.add('hidden');
+  else if (!isMobile && !gamePaused) clickPrompt.classList.remove('hidden');
+});
+document.addEventListener('mousemove', e => {
+  if (playerDead) return;
+  if (!pointerLocked || gamePaused) return;
+  P.a     +=  e.movementX * MOUSE_H_SENS * sensitivityMult;
+  P.pitch -=  e.movementY * MOUSE_V_SENS * sensitivityMult;
+  P.pitch  = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, P.pitch));
+});
+
+// ═══════════════════════════════════════════════════════
+//  COLLISION (walls) + nudge safeguard
+// ═══════════════════════════════════════════════════════
+function solid(x, y) {
+  const mx = Math.floor(x), my = Math.floor(y);
+  return getMapTile(mx, my) !== 0;
+}
+function applyMove(nx, ny) {
+  const r = COLL_RADIUS;
+  const okX = !solid(nx+r,P.y+r) && !solid(nx+r,P.y-r) && !solid(nx-r,P.y+r) && !solid(nx-r,P.y-r);
+  const okY = !solid(P.x+r,ny+r) && !solid(P.x+r,ny-r) && !solid(P.x-r,ny+r) && !solid(P.x-r,ny-r);
+  if (okX) P.x = nx; else P.vx = 0;
+  if (okY) P.y = ny; else P.vy = 0;
+}
+
+function nudgeOutOfWalls() {
+  if (!solid(P.x, P.y)) return;
+  const attempts = [
+    { x: 0.06, y: 0 }, { x: -0.06, y: 0 },
+    { x: 0, y: 0.06 }, { x: 0, y: -0.06 },
+    { x: 0.04, y: 0.04 }, { x: -0.04, y: 0.04 },
+    { x: 0.04, y: -0.04 }, { x: -0.04, y: -0.04 },
+    { x: 0.02, y: 0.02 }
+  ];
+  for (const a of attempts) {
+    if (!solid(P.x + a.x, P.y + a.y)) {
+      P.x += a.x; P.y += a.y;
+      return;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ENEMY COLLISION — gentle separation, not overlapping
+// ═══════════════════════════════════════════════════════
+function pushOutOfEnemies() {
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+    const dx = P.x - enemy.x;
+    const dy = P.y - enemy.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < ENEMY_STOP_DIST && dist > 0.001) {
+      const overlap = (ENEMY_STOP_DIST - dist) * 0.3;
+      const nx = dx / dist;
+      const ny = dy / dist;
+      P.x += nx * overlap;
+      P.y += ny * overlap;
+    } else if (dist < 0.001) {
+      P.x += ENEMY_STOP_DIST * 0.3;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ENEMY VS ENEMY SEPARATION
+// ═══════════════════════════════════════════════════════
+function pushEnemiesApart() {
+  for (let i = 0; i < enemies.length; i++) {
+    const a = enemies[i];
+    if (!a.alive) continue;
+    for (let j = i + 1; j < enemies.length; j++) {
+      const b = enemies[j];
+      if (!b.alive) continue;
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < ENEMY_PUSH_DIST && dist > 0.001) {
+        const overlap = (ENEMY_PUSH_DIST - dist) * 0.5;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        a.x += nx * overlap * 0.5;
+        a.y += ny * overlap * 0.5;
+        b.x -= nx * overlap * 0.5;
+        b.y -= ny * overlap * 0.5;
+      } else if (dist < 0.001) {
+        a.x += 0.01;
+        b.x -= 0.01;
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DDA RAYCASTER
+// ═══════════════════════════════════════════════════════
+function castRay(angle) {
+  const rc = Math.cos(angle), rs = Math.sin(angle);
+  let mx = Math.floor(P.x), my = Math.floor(P.y);
+  const sx = rc >= 0 ? 1 : -1, sy = rs >= 0 ? 1 : -1;
+  const ddx = Math.abs(rc) < 1e-9 ? 1e30 : Math.abs(1/rc);
+  const ddy = Math.abs(rs) < 1e-9 ? 1e30 : Math.abs(1/rs);
+  let sdx = rc >= 0 ? (mx+1-P.x)*ddx : (P.x-mx)*ddx;
+  let sdy = rs >= 0 ? (my+1-P.y)*ddy : (P.y-my)*ddy;
+  let side = 0;
+  let hitValue = 1;
+  for (let i = 0; i < 64; i++) {
+    if (sdx < sdy) { sdx += ddx; mx += sx; side = 0; }
+    else           { sdy += ddy; my += sy; side = 1; }
+    const tile = getMapTile(mx, my);
+    if (tile !== 0) {
+      hitValue = tile;
+      break;
+    }
+  }
+  const perp = side === 0
+    ? (mx - P.x + (1-sx)*0.5) / rc
+    : (my - P.y + (1-sy)*0.5) / rs;
+  const hitX = P.x + rc * perp;
+  const hitY = P.y + rs * perp;
+  return { dist: Math.max(0.001, perp), side, tileValue: hitValue, mapX: mx, mapY: my, hitX, hitY };
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER (walls + enemy sprites)
+// ═══════════════════════════════════════════════════════
+function getRoomBgColor() {
+  const room = getRoomAtTile(P.x | 0, P.y | 0);
+  if (!room) return '#000000';
+  switch (room.type) {
+    case 'cache':  return '#001a1a';
+    case 'gauntlet': return '#1a1a15';
+    default: return '#000000';
+  }
+}
+
+function worldToScreen(wx, wy) {
+  const dx = wx - P.x;
+  const dy = wy - P.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const angle = Math.atan2(dy, dx);
+  let diff = angle - P.a;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  const screenX = CW/2 + Math.tan(diff) * (CW/2) / Math.tan(HALF_HFOV);
+  const spriteHeight = CH / Math.max(dist, 0.3);
+  const screenY = CH/2 + P.pitch - spriteHeight/2;
+  return { screenX, screenY, dist, spriteHeight, diff };
+}
+
+function render() {
+  ctx.fillStyle = getRoomBgColor();
+  ctx.fillRect(0, 0, CW, CH);
+  ctx.lineWidth = STRIP_PX;
+  const horizY = HALF_CH + P.pitch;
+
+  for (let i = 0; i < NUM_RAYS; i++) {
+    const angle = P.a - HALF_HFOV + (i / NUM_RAYS) * HFOV;
+    const { dist, side, tileValue, mapX, mapY } = castRay(angle);
+    if (dist > RAY_DEPTH) continue;
+
+    const wallH  = Math.min(CH * 2, (CH / dist) | 0);
+    const t      = Math.max(0, 1 - dist / RAY_DEPTH);
+    let bright   = SHADE_FLOOR + (1 - SHADE_FLOOR) * t;
+    if (side === 1) bright *= 0.72;
+
+    let strokeHex;
+    if (tileValue === 2) {
+      strokeHex = '#ff1111';
+    } else {
+      const room = getRoomAtTile(mapX, mapY);
+      if (room) {
+        switch (room.type) {
+          case 'cache':
+            strokeHex = `rgb(${0},${Math.floor(170*bright)},${Math.floor(170*bright)})`;
+            break;
+          case 'gauntlet':
+            strokeHex = `rgb(${Math.floor(221*bright)},${Math.floor(221*bright)},${Math.floor(187*bright)})`;
+            break;
+          default:
+            const lum = Math.min(255, (bright * 255) | 0);
+            strokeHex = SHADE_LUT[lum];
+        }
+      } else {
+        const lum = Math.min(255, (bright * 255) | 0);
+        strokeHex = SHADE_LUT[lum];
+      }
+    }
+
+    ctx.strokeStyle = strokeHex;
+    const x = i * STRIP_PX + 1;
+    ctx.beginPath();
+    ctx.moveTo(x, (horizY - wallH * 0.5) | 0);
+    ctx.lineTo(x, (horizY + wallH * 0.5) | 0);
+    ctx.stroke();
+  }
+
+  // Draw tracers
+  if (tracers.length > 0) {
+    ctx.lineWidth = 1;
+    for (let i = tracers.length - 1; i >= 0; i--) {
+      const tr = tracers[i];
+      const alpha = tr.life;
+      if (tr.outline) {
+        ctx.strokeStyle = tr.outline;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(tr.x1, tr.y1);
+        ctx.lineTo(tr.x2, tr.y2);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = tr.color;
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.moveTo(tr.x1, tr.y1);
+      ctx.lineTo(tr.x2, tr.y2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Enemy sprites (sorted far → near) ──
+  const visibleEnemies = [];
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+    const sc = worldToScreen(enemy.x, enemy.y);
+    if (Math.abs(sc.diff) > HALF_HFOV + 0.3) continue;
+    if (sc.screenX < -50 || sc.screenX > CW + 50) continue;
+    visibleEnemies.push({ enemy, ...sc });
+  }
+  visibleEnemies.sort((a, b) => b.dist - a.dist);
+
+    for (const ve of visibleEnemies) {
+    const enemy = ve.enemy;
+    let img, scale;
+
+    if (enemy.type === 'krabbe') {
+      const cycle = 0.4;
+      img = (Math.floor(enemy.spriteTimer / cycle) % 2 === 0)
+        ? krabbeImg
+        : krabbeImg2;
+      scale = KRABBE_SCALE;
+    } else if (enemy.type === 'bulwark') {
+      img = bulwarkImg;
+      scale = BULWARK_SCALE;
+    } else if (enemy.type === 'skytter') {
+      const cycle = 0.4;
+      img = (Math.floor(enemy.spriteTimer / cycle) % 2 === 0)
+        ? skytterImg
+        : skytterImg2;
+      scale = SKYTTER_SCALE;
+    } else {
+      img = enemy.sprite;
+      scale = 1.0;
+    }
+
+    const spriteW = ve.spriteHeight;
+    const spriteH = ve.spriteHeight * scale;
+    const sx = ve.screenX - spriteW / 2;
+    const sy = ve.screenY + (ve.spriteHeight - spriteH) / 2;
+
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(img, sx, sy, spriteW, spriteH);
+    } else {
+      ctx.fillStyle = '#ff3333';
+      ctx.beginPath();
+      ctx.arc(ve.screenX, ve.screenY + ve.spriteHeight / 2, spriteW / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // ── Skytter aim warning dot ──
+  for (const enemy of enemies) {
+    if (!enemy.alive || enemy.type !== 'skytter' || enemy.state !== 'aim') continue;
+    const sc = worldToScreen(enemy.x, enemy.y);
+    if (Math.abs(sc.diff) > HALF_HFOV + 0.3) continue;
+
+    const pulse = Math.sin((SKYTTER_AIM_TIME - enemy.windupTimer) * Math.PI * 8) * 0.5 + 0.5;
+    const dotR = 4 + pulse * 3;
+    const alpha = 0.6 + pulse * 0.4;
+
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#ff4400';
+    ctx.beginPath();
+    ctx.arc(sc.screenX, sc.screenY + sc.spriteHeight * 0.25, dotR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Projectiles (world-space billboard) ──
+  for (const proj of projectiles) {
+    const sc = worldToScreen(proj.x, proj.y);
+    if (Math.abs(sc.diff) > HALF_HFOV + 0.3) continue;
+    if (sc.screenX < -20 || sc.screenX > CW + 20) continue;
+
+    const r = Math.max(2, sc.spriteHeight * 0.08);
+    // Outer glow
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#ffaa00';
+    ctx.beginPath();
+    ctx.arc(sc.screenX, sc.screenY + sc.spriteHeight * 0.5, r * 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    // Core
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffee44';
+    ctx.beginPath();
+    ctx.arc(sc.screenX, sc.screenY + sc.spriteHeight * 0.5, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // ── Interactable cubes (violet) ──
+  for (const inter of interactables) {
+    const sc = worldToScreen(inter.x, inter.y);
+    if (Math.abs(sc.diff) > HALF_HFOV + 0.3) continue;
+    if (sc.screenX < -50 || sc.screenX > CW + 50) continue;
+    const size = sc.spriteHeight * 0.4;  // 1x1 cube, smaller
+    ctx.fillStyle = '#ff00ff';
+    ctx.fillRect(sc.screenX - size/2, sc.screenY + sc.spriteHeight/2 - size/2, size, size);
+  }
+
+  // ── Death blood overlay ──
+  if (playerDead && deathTimestamp > 0) {
+    const now = performance.now() / 1000;
+    const progress = Math.min((now - deathTimestamp / 1000) / DEATH_BLOOD_DUR, 1.0);
+    if (deathDrips.length === 0) {
+      for (let i = 0; i < 12; i++) {
+        deathDrips.push({
+          y: Math.random() * CH,
+          maxLen: CW * (0.3 + Math.random() * 0.7),
+          width: 3 + Math.random() * 8,
+          alpha: 0.4 + Math.random() * 0.4
+        });
+      }
+    }
+    for (const drip of deathDrips) {
+      const len = drip.maxLen * progress;
+      const opacity = progress * drip.alpha;
+      ctx.fillStyle = `rgba(100, 0, 0, ${opacity})`;
+      ctx.fillRect(0, drip.y - drip.width/2, len, drip.width);
+    }
+    ctx.fillStyle = `rgba(80, 0, 0, ${progress * 0.6})`;
+    ctx.fillRect(0, 0, CW, CH);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  MINIMAP (dynamic radar style)
+// ═══════════════════════════════════════════════════════
+function drawMinimap() {
+  const mmX = 8, mmY = 8, mmSize = 64;
+  const worldRadius = 18; // show 18 tiles in each direction
+  const tileScale = mmSize / (worldRadius * 2); // scale factor
+
+  // Background
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(mmX, mmY, mmSize, mmSize);
+
+  const playerTileX = Math.floor(P.x);
+  const playerTileY = Math.floor(P.y);
+
+  // Iterate over visible tile area
+  for (let dy = -worldRadius; dy <= worldRadius; dy++) {
+    for (let dx = -worldRadius; dx <= worldRadius; dx++) {
+      const tx = playerTileX + dx;
+      const ty = playerTileY + dy;
+      const tile = getMapTile(tx, ty);
+      if (tile === 0) continue;
+      const sx = mmX + (dx + worldRadius) * tileScale;
+      const sy = mmY + (dy + worldRadius) * tileScale;
+      const s = Math.max(1, tileScale);
+      if (tile === 1) ctx.fillStyle = '#444444';
+      else if (tile === 2) ctx.fillStyle = '#ff1111';
+      ctx.fillRect(sx, sy, s, s);
+    }
+  }
+
+  // Player dot
+  const px = mmX + mmSize/2;
+  const py = mmY + mmSize/2;
+  ctx.fillStyle = '#00ff00';
+  ctx.beginPath();
+  ctx.arc(px, py, 2, 0, Math.PI*2);
+  ctx.fill();
+
+  // Enemy dots
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+    const relX = enemy.x - P.x;
+    const relY = enemy.y - P.y;
+    if (Math.abs(relX) > worldRadius || Math.abs(relY) > worldRadius) continue;
+    const ex = mmX + mmSize/2 + relX * tileScale;
+    const ey = mmY + mmSize/2 + relY * tileScale;
+    ctx.fillStyle = '#ff0000';
+    ctx.beginPath();
+    ctx.arc(ex, ey, 2, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  HUD
+// ═══════════════════════════════════════════════════════
+function drawHUD() {
+  if (playerDead) return;
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('RING ' + currentRing, 80, 20);
+  ctx.fillText('SCORE ' + score, 80, 35);
+
+  const cx = CW / 2, cy = CH / 2;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx - 5, cy); ctx.lineTo(cx - 2, cy);
+  ctx.moveTo(cx + 2, cy); ctx.lineTo(cx + 5, cy);
+  ctx.moveTo(cx, cy - 5); ctx.lineTo(cx, cy - 2);
+  ctx.moveTo(cx, cy + 2); ctx.lineTo(cx, cy + 5);
+  ctx.stroke();
+
+  if (currentWeapon === 2) {
+    const now = performance.now() / 1000;
+    const elapsed = now - lastFireTime;
+    const progress = Math.min(elapsed / SNIPER_COOLDOWN, 1);
+    const radius = 18;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ffff00';
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    if (progress >= 1) {
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    } else {
+      const halfArc = progress * Math.PI / 2;
+      ctx.arc(cx, cy, radius, -halfArc, halfArc);
+      ctx.arc(cx, cy, radius, Math.PI - halfArc, Math.PI + halfArc);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  
+  // Out of ammo warning
+  if (ammo[currentWeapon] <= 0) {
+    ctx.font = '14px "Arial Black", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffff00';
+    ctx.fillText('Out of Ammo!!', cx, cy + 28);
+  }
+  
+
+  const barY      = CH - 40;
+  const barH      = 6;
+  const barTop    = barY - barH/2;
+  const leftX     = 10;
+  const midX      = 70;
+  const rightX    = 130;
+  const barW      = 60;
+
+  const armorRatio = Math.max(0, playerArmor / MAX_ARMOR);
+  const armorFillW = Math.floor(armorRatio * barW);
+  ctx.fillStyle = '#112222';
+  ctx.fillRect(leftX, barTop, barW, barH);
+
+  let armorColor;
+  if (playerArmor <= 74) armorColor = '#ffcc00';
+  else if (playerArmor <= 149) armorColor = '#00aaaa';
+  else armorColor = '#660000';
+
+  ctx.fillStyle = armorColor;
+  ctx.fillRect(midX - armorFillW, barTop, armorFillW, barH);
+  ctx.strokeStyle = '#004444';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(leftX, barTop, barW, barH);
+
+  const hpRatio = Math.max(0, playerHP / MAX_HP);
+  const hpFillW = Math.floor(hpRatio * barW);
+  ctx.fillStyle = '#331111';
+  ctx.fillRect(midX, barTop, barW, barH);
+  ctx.fillStyle = '#cc1111';
+  ctx.fillRect(midX, barTop, hpFillW, barH);
+  ctx.strokeStyle = '#661111';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(midX, barTop, barW, barH);
+
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#00aaaa';
+  ctx.fillText('AR', leftX, barTop - 4);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(playerArmor.toString(), leftX, barTop + barH + 13);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#cc1111';
+  ctx.fillText('HP', rightX, barTop - 4);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(playerHP.toString(), rightX, barTop + barH + 13);
+
+  const now = performance.now() / 1000;
+  const msgX = CW * 0.55;
+  let msgY = CH * 0.3;
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'left';
+  for (let i = popupMessages.length - 1; i >= 0; i--) {
+    const msg = popupMessages[i];
+    const elapsed = now - msg.timestamp;
+    if (elapsed >= 7) {
+      popupMessages.splice(i, 1);
+      continue;
+    }
+    const alpha = 1 - elapsed / 7;
+    ctx.fillStyle = `rgba(255, 255, 0, ${alpha})`;
+    ctx.fillText(msg.text, msgX, msgY);
+    msgY += 16;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DAMAGE & DEATH
+// ═══════════════════════════════════════════════════════
+function damagePlayer(dmg) {
+  const reduction = getDamageReduction(playerArmor);
+  playerArmor = Math.max(0, playerArmor - dmg);
+  playerHP = Math.max(0, playerHP - dmg * (1 - reduction));
+  if (playerHP <= 0 && !playerDead) {
+    triggerDeath();
+  }
+}
+
+function triggerDeath() {
+  playDeathSound();
+  playerDead = true;
+  deathTimestamp = performance.now();
+  deathDrips = [];
+  stopAutoFire();
+  if (pointerLocked) document.exitPointerLock();
+  canvas.classList.add('dead');
+  if (pauseMenuEl.classList.contains('open')) closeMenu();
+  if (debugMenuEl.classList.contains('open')) {
+    debugMenuEl.classList.remove('open');
+    gamePaused = false;
+  }
+  const ds = document.getElementById('death-score');
+  if (ds) ds.textContent = 'Score ' + score;
+  const sk = document.getElementById('stat-krabbes');
+  if (sk) sk.textContent = krabbesKilled;
+  const sb = document.getElementById('stat-bulwarks');
+  if (sb) sb.textContent = bulwarksKilled;
+  const ss = document.getElementById('stat-skytters');
+  if (ss) ss.textContent = skyttersKilled;
+  console.log('Player died');
+}
+
+// ═══════════════════════════════════════════════════════
+//  ENEMY AI
+// ═══════════════════════════════════════════════════════
+function updateProjectiles(dt) {
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const proj = projectiles[i];
+    proj.x += proj.vx * dt;
+    proj.y += proj.vy * dt;
+    proj.life -= dt;
+
+    if (proj.life <= 0 || solid(proj.x, proj.y)) {
+      projectiles.splice(i, 1);
+      continue;
+    }
+
+    const dx = P.x - proj.x;
+    const dy = P.y - proj.y;
+    if (Math.sqrt(dx * dx + dy * dy) < 0.35) {
+      damagePlayer(proj.damage);
+      projectiles.splice(i, 1);
+    }
+  }
+}
+
+function updateEnemyAI(enemy, dt) {
+  if (!enemy.alive) return;
+  const dx = P.x - enemy.x;
+  const dy = P.y - enemy.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+
+  let speed = (enemy.type === 'bulwark') ? BULWARK_SPEED : (enemy.type === 'skytter' ? SKYTTER_APPROACH_SPEED : KRABBE_SPEED);
+  speed *= (enemy.slowMultiplier || 1);
+
+  // Skytter has its own full state machine – handle it here and exit early
+  if (enemy.type === 'skytter') {
+    const nx = dx / (dist || 1);
+    const ny = dy / (dist || 1);
+
+    // Cooldown ticks down in non-aim states
+    if (enemy.state !== 'aim') {
+      enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
+    }
+
+    // Retreat interrupt
+    if (dist < SKYTTER_RETREAT_DIST && enemy.state !== 'retreat' && enemy.state !== 'aim') {
+      enemy.state = 'retreat';
+    }
+
+    if (enemy.state === 'retreat') {
+      const step = SKYTTER_RETREAT_SPEED * dt;
+      const rx = enemy.x - nx * step;
+      const ry = enemy.y - ny * step;
+      let moved = false;
+      if (!solid(rx, ry)) {
+        enemy.x = rx; enemy.y = ry; moved = true;
+      } else {
+        // Wall slide: try perpendicular directions
+        const perpX = -ny;
+        const perpY = nx;
+        for (const s of [1, -1]) {
+          const sx = enemy.x + perpX * s * step;
+          const sy = enemy.y + perpY * s * step;
+          if (!solid(sx, sy)) {
+            enemy.x = sx; enemy.y = sy; moved = true;
+            break;
+          }
+        }
+      }
+      if (dist > SKYTTER_PREF_MIN + 1.0) {
+        enemy.state = 'approach';
+      } else if (!moved && enemy.attackCooldown <= 0) {
+        // Trapped against wall, fight back instead of sitting still
+        enemy.state = 'aim';
+        enemy.windupTimer = SKYTTER_AIM_TIME;
+        playSkytterCharge();
+      }
+    } else if (enemy.state === 'approach') {
+      if (dist > SKYTTER_PREF_MAX) {
+        const step = SKYTTER_APPROACH_SPEED * dt;
+        const ax = enemy.x + nx * step;
+        const ay = enemy.y + ny * step;
+        if (!solid(ax, ay)) { enemy.x = ax; enemy.y = ay; }
+      } else if (enemy.attackCooldown <= 0) {
+        enemy.state = 'aim';
+        enemy.windupTimer = SKYTTER_AIM_TIME;
+        playSkytterCharge();
+      }
+    } else if (enemy.state === 'aim') {
+      const travelTime = dist / SKYTTER_PROJ_SPEED;
+      enemy.aimTargetX = P.x + P.vx * travelTime * SKYTTER_LEAD_FACTOR;
+      enemy.aimTargetY = P.y + P.vy * travelTime * SKYTTER_LEAD_FACTOR;
+      enemy.windupTimer -= dt;
+      if (enemy.windupTimer <= 0) {
+        const tdx = enemy.aimTargetX - enemy.x;
+        const tdy = enemy.aimTargetY - enemy.y;
+        const tlen = Math.sqrt(tdx * tdx + tdy * tdy);
+        if (tlen > 0.001) {
+          projectiles.push({
+            x: enemy.x,
+            y: enemy.y,
+            vx: (tdx / tlen) * SKYTTER_PROJ_SPEED,
+            vy: (tdy / tlen) * SKYTTER_PROJ_SPEED,
+            damage: SKYTTER_PROJ_DAMAGE,
+            life: 3.0
+          });
+        }
+        try { skytterShotSound.currentTime = 0; skytterShotSound.play(); } catch(e) {}
+        enemy.state = 'cooldown';
+        enemy.attackCooldown = SKYTTER_COOLDOWN_TIME;
+      }
+    } else if (enemy.state === 'cooldown') {
+      if (enemy.attackCooldown <= 0) {
+        enemy.state = 'approach';
+      }
+    }
+
+    enemy.spriteTimer += dt;
+    if (enemy.slowTimer > 0) {
+      enemy.slowTimer -= dt;
+      if (enemy.slowTimer <= 0) { enemy.slowMultiplier = 1; enemy.slowTimer = 0; }
+    }
+    return;
+  }
+
+  // ── MOVEMENT (Krabbe/Bulwark) ──
+  if (enemy.type === 'bulwark') {
+    let moveX = dx / dist;
+    let moveY = dy / dist;
+
+    let repX = 0, repY = 0;
+    for (const other of enemies) {
+      if (other === enemy || !other.alive) continue;
+      const odx = enemy.x - other.x;
+      const ody = enemy.y - other.y;
+      const odist = Math.sqrt(odx*odx + ody*ody);
+      if (odist < ENEMY_SEPARATION_RADIUS && odist > 0.001) {
+        const factor = (ENEMY_SEPARATION_RADIUS - odist) / ENEMY_SEPARATION_RADIUS;
+        repX += (odx / odist) * factor;
+        repY += (ody / odist) * factor;
+      }
+    }
+    moveX += repX * ENEMY_SEPARATION_STRENGTH;
+    moveY += repY * ENEMY_SEPARATION_STRENGTH;
+    const len = Math.sqrt(moveX*moveX + moveY*moveY);
+    if (len > 0.001) { moveX /= len; moveY /= len; }
+
+    const step = Math.min(speed * dt, dist - ENEMY_STOP_DIST);
+    const nx = enemy.x + moveX * step;
+    const ny = enemy.y + moveY * step;
+    if (!solid(nx, ny)) { enemy.x = nx; enemy.y = ny; }
+  } else {
+    if (enemy.state === 'chase') {
+      if (dist <= ENEMY_STOP_DIST + 0.05) {
+        // already in range
+      } else {
+        let moveX = dx / dist;
+        let moveY = dy / dist;
+
+        let repX = 0, repY = 0;
+        for (const other of enemies) {
+          if (other === enemy || !other.alive) continue;
+          const odx = enemy.x - other.x;
+          const ody = enemy.y - other.y;
+          const odist = Math.sqrt(odx*odx + ody*ody);
+          if (odist < ENEMY_SEPARATION_RADIUS && odist > 0.001) {
+            const factor = (ENEMY_SEPARATION_RADIUS - odist) / ENEMY_SEPARATION_RADIUS;
+            repX += (odx / odist) * factor;
+            repY += (ody / odist) * factor;
+          }
+        }
+        moveX += repX * ENEMY_SEPARATION_STRENGTH;
+        moveY += repY * ENEMY_SEPARATION_STRENGTH;
+        const len = Math.sqrt(moveX*moveX + moveY*moveY);
+        if (len > 0.001) { moveX /= len; moveY /= len; }
+
+        const step = Math.min(speed * dt, dist - ENEMY_STOP_DIST);
+        const nx = enemy.x + moveX * step;
+        const ny = enemy.y + moveY * step;
+        if (!solid(nx, ny)) { enemy.x = nx; enemy.y = ny; }
+      }
+    }
+  }
+
+  // ── ATTACK STATE MACHINE (Krabbe/Bulwark) ──
+  if (enemy.state === 'chase') {
+    if (dist <= ENEMY_STOP_DIST + 0.05 && enemy.attackCooldown <= 0) {
+      enemy.state = 'windup';
+      enemy.windupTimer = (enemy.type === 'bulwark') ? BULWARK_WINDUP_TIME : KRABBE_WINDUP_TIME;
+      if (audioCtx) {
+        if (enemy.type === 'bulwark') {
+          try { bulwarkAggressiveSound.currentTime = 0; bulwarkAggressiveSound.play(); } catch(e) {}
+        } else {
+          playSmall_attack();
+        }
+      }
+    }
+  } else if (enemy.state === 'windup') {
+    enemy.windupTimer -= dt;
+    if (enemy.windupTimer <= 0) {
+      const pDist = Math.sqrt((P.x - enemy.x)**2 + (P.y - enemy.y)**2);
+      const attackRange = (enemy.type === 'bulwark') ? BULWARK_ATTACK_RANGE : KRABBE_ATTACK_RANGE;
+      const attackDmg   = (enemy.type === 'bulwark') ? BULWARK_ATTACK_DAMAGE : KRABBE_ATTACK_DAMAGE;
+      if (pDist <= attackRange) {
+        const dmgMult = Math.min(3, 1 + currentRing * 0.1);
+        damagePlayer(attackDmg * dmgMult);
+      }
+      enemy.state = 'cooldown';
+      enemy.attackCooldown = (enemy.type === 'bulwark') ? BULWARK_COOLDOWN_TIME : KRABBE_COOLDOWN_TIME;
+    }
+  } else if (enemy.state === 'cooldown') {
+    enemy.attackCooldown -= dt;
+    if (enemy.attackCooldown <= 0) {
+      enemy.state = 'chase';
+    }
+  }
+
+  enemy.spriteTimer += dt;
+
+  if (enemy.slowTimer > 0) {
+    enemy.slowTimer -= dt;
+    if (enemy.slowTimer <= 0) {
+      enemy.slowMultiplier = 1;
+      enemy.slowTimer = 0;
+    }
+  }
+}
+
+function damageEnemy(enemy, baseDmg, weaponType) {
+  let reduction = getDamageReduction(enemy.armor);
+  if (weaponType === 2) reduction = 0;
+  else if (weaponType === 0) {
+    const higherTier = Math.min(getArmorTier(enemy.armor) + 1, 4);
+    reduction = higherTier === 1 ? 0 : higherTier === 2 ? 0.20 : higherTier === 3 ? 0.40 : 0.60;
+  }
+  enemy.armor = Math.max(0, enemy.armor - baseDmg);
+  enemy.hp -= baseDmg * (1 - reduction);
+  if (enemy.hp <= 0) {
+    enemy.alive = false;
+    const ringMult = 1 + currentRing * 0.1;
+    score += Math.floor(enemy.scoreValue * ringMult);
+    if (enemy.type === 'bulwark') bulwarksKilled++;
+    else if (enemy.type === 'krabbe') krabbesKilled++;
+    else if (enemy.type === 'skytter') skyttersKilled++;
+    if (audioCtx) {
+        if (enemy.type === 'bulwark') {
+          try { bulwarkDeathSound.currentTime = 0; bulwarkDeathSound.play(); } catch(e) {}
+        } else if (enemy.type === 'skytter') {
+          playSkytterDeath();
+        } else {
+          playKrabbe_death();
+        }
+      }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  INTERACT SYSTEM
+// ═══════════════════════════════════════════════════════
+function tryInteract() {
+  if (playerDead || gamePaused) return;
+  if (!activeInteractable) return;
+  const items = activeInteractable.items;
+  if (items && items.length > 0) {
+    let text = '';
+    for (const item of items) {
+      switch (item.type) {
+        case 'ammo': {
+          const wIdx = item.weapon;
+          const before = ammo[wIdx];
+          ammo[wIdx] = Math.min(AMMO_CAPS[wIdx], ammo[wIdx] + item.amount);
+          const gained = ammo[wIdx] - before;
+          if (gained > 0) {
+            const wname = ['Pistol','AR','Sniper'][wIdx];
+            text += `${wname} Ammo +${gained} `;
+          }
+          break;
+        }
+        case 'health': {
+          const before = playerHP;
+          playerHP = Math.min(MAX_HP, playerHP + item.amount);
+          const gained = playerHP - before;
+          if (gained > 0) text += `HP +${gained} `;
+          break;
+        }
+        case 'armor': {
+          const before = playerArmor;
+          playerArmor = Math.min(MAX_ARMOR, playerArmor + item.amount);
+          const gained = playerArmor - before;
+          if (gained > 0) text += `Armor +${gained} `;
+          break;
+        }
+      }
+    }
+    if (text) {
+      popupMessages.push({ text: text.trim(), timestamp: performance.now() / 1000 });
+    }
+  }
+  interactables = interactables.filter(i => i !== activeInteractable);
+  activeInteractable = null;
+  interactBtn.style.display = 'none';
+  updateAmmoDisplay();
+
+  // Auto-clear cache rooms after looting
+  const room = getRoomAtTile(P.x | 0, P.y | 0);
+  if (room && room.type === 'cache' && !room.cleared) {
+    room.cleared = true;
+    unlockSidewaysOutward(room.gridX, room.gridY);
+    console.log('Cache room auto-cleared:', room.gridX, room.gridY);
+  }
+}
+
+interactBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  tryInteract();
+});
+interactBtn.addEventListener('touchend', e => {
+  e.stopPropagation();
+  e.preventDefault();
+  lookTouchId = null;
+  tryInteract();
+});
+
+// ═══════════════════════════════════════════════════════
+//  CACHE ROOM LOOT GENERATION
+// ═══════════════════════════════════════════════════════
+function generateCachePickups(room) {
+  let budget = 90 + Math.floor(Math.random() * 111);
+  const items = [];
+  const freeWeapon = Math.floor(Math.random() * 3);
+  const freeAmt = freeWeapon === 0 ? 8 : (freeWeapon === 1 ? 15 : 4);
+  items.push({ type: 'ammo', weapon: freeWeapon, amount: freeAmt });
+  const usedWeapons = new Set([freeWeapon]);
+
+  const defs = [
+    { type: 'ammo', weapon: 0, size: 'small', cost: 15, amount: 8, weight: 1.4 },
+    { type: 'ammo', weapon: 0, size: 'large', cost: 40, amount: 15, weight: 0.8 },
+    { type: 'ammo', weapon: 1, size: 'small', cost: 15, amount: 15, weight: 1.3 },
+    { type: 'ammo', weapon: 1, size: 'large', cost: 40, amount: 30, weight: 0.7 },
+    { type: 'ammo', weapon: 2, size: 'small', cost: 15, amount: 4, weight: 0.75 },
+    { type: 'ammo', weapon: 2, size: 'large', cost: 40, amount: 7, weight: 0.30 },
+    { type: 'health', size: 'small', cost: 25, amount: 15, weight: 1.0 },
+    { type: 'health', size: 'medium', cost: 45, amount: 30, weight: 0.55 },
+    { type: 'health', size: 'large', cost: 70, amount: 50, weight: 0.20 },
+    { type: 'armor', size: 'small', cost: 20, amount: 20, weight: 0.65 },
+    { type: 'armor', size: 'medium', cost: 45, amount: 50, weight: 0.35 },
+    { type: 'armor', size: 'large', cost: 85, amount: 80, weight: 0.12 }
+  ];
+
+  function wouldOvercap(def) {
+    if (def.type === 'ammo') return ammo[def.weapon] + def.amount > AMMO_CAPS[def.weapon];
+    else if (def.type === 'health') return playerHP + def.amount > MAX_HP;
+    else if (def.type === 'armor') return playerArmor + def.amount > MAX_ARMOR;
+    return false;
+  }
+
+  function buildPool() {
+    return defs.filter(def => {
+      if (def.cost > budget) return false;
+      if (wouldOvercap(def)) return false;
+      if (def.type === 'ammo' && usedWeapons.has(def.weapon)) return false;
+      return true;
+    });
+  }
+
+  function pickFrom(pool) {
+    let totalW = 0;
+    for (const d of pool) totalW += d.weight;
+    if (totalW <= 0) return null;
+    let r = Math.random() * totalW;
+    for (const d of pool) {
+      r -= d.weight;
+      if (r <= 0) return d;
+    }
+    return pool[pool.length - 1];
+  }
+
+  let safety = 0;
+  while (safety++ < 50) {
+    const pool = buildPool();
+    if (pool.length === 0) break;
+    const chosen = pickFrom(pool);
+    if (!chosen) break;
+    items.push({ type: chosen.type, weapon: chosen.weapon, amount: chosen.amount });
+    budget -= chosen.cost;
+    if (chosen.type === 'ammo') usedWeapons.add(chosen.weapon);
+  }
+  return items;
+}
+
+// ═══════════════════════════════════════════════════════
+//  ROOM ENEMY SPAWNING
+// ═══════════════════════════════════════════════════════
+function spawnRoomEnemies(room) {
+  const gx = room.gridX, gy = room.gridY;
+
+  let krabbeCount = 0, bulwarkCount = 0, skytterCount = 0;
+  if (room.type === 'gauntlet') {
+    krabbeCount = 0;
+    bulwarkCount = 1;
+    skytterCount = 1;
+  } else if (room.type === 'arena') {
+    krabbeCount = 1;
+    bulwarkCount = 1;
+    skytterCount = 0;
+  } else {
+    krabbeCount = 0;
+    bulwarkCount = 0;
+    skytterCount = 0;
+  }
+
+  const totalCount = krabbeCount + bulwarkCount + skytterCount;
+  if (totalCount === 0) return;
+
+  const closeChance = room.type === 'arena' ? 0.333 : 0.45;
+  const corners = [
+    { x: gx * CELL_SIZE + 1.5, y: gy * CELL_SIZE + 1.5 },
+    { x: gx * CELL_SIZE + INTERIOR_SZ - 0.5, y: gy * CELL_SIZE + 1.5 },
+    { x: gx * CELL_SIZE + 1.5, y: gy * CELL_SIZE + INTERIOR_SZ - 0.5 },
+    { x: gx * CELL_SIZE + INTERIOR_SZ - 0.5, y: gy * CELL_SIZE + INTERIOR_SZ - 0.5 }
+  ];
+
+  const sortedByDist = corners.map(c => ({ ...c, dist: Math.hypot(c.x - P.x, c.y - P.y) }))
+                              .sort((a, b) => a.dist - b.dist);
+
+  const occupied = [];
+
+  function createEnemy(type, x, y) {
+    let enemy;
+    if (type === 'krabbe') {
+      enemy = {
+        x, y,
+        hp: KRABBE_HP, maxHp: KRABBE_HP, armor: 0,
+        type: 'krabbe', sprite: krabbeImg,
+        alive: true, state: 'chase', targetAngle: 0,
+        lastAttackTime: 0, slowMultiplier: 1, slowTimer: 0,
+        attackCooldown: 0, windupTimer: 0,
+        scoreValue: KRABBE_SCORE,
+        homeGX: gx, homeGY: gy,
+        spriteTimer: Math.random() * 0.8
+      };
+    } else if (type === 'bulwark') {
+      enemy = {
+        x, y,
+        hp: BULWARK_HP, maxHp: BULWARK_HP, armor: BULWARK_ARMOR,
+        type: 'bulwark', sprite: bulwarkImg,
+        alive: true, state: 'chase', targetAngle: 0,
+        lastAttackTime: 0, slowMultiplier: 1, slowTimer: 0,
+        attackCooldown: 0, windupTimer: 0,
+        scoreValue: BULWARK_SCORE,
+        homeGX: gx, homeGY: gy,
+        spriteTimer: Math.random() * 0.8
+      };
+    } else if (type === 'skytter') {
+      enemy = {
+        x, y,
+        hp: SKYTTER_HP, maxHp: SKYTTER_HP, armor: SKYTTER_ARMOR,
+        type: 'skytter', sprite: skytterImg,
+        alive: true, state: 'approach',
+        slowMultiplier: 1, slowTimer: 0,
+        attackCooldown: 1.0,
+        windupTimer: 0,
+        aimTargetX: 0, aimTargetY: 0,
+        scoreValue: SKYTTER_SCORE,
+        homeGX: gx, homeGY: gy,
+        spriteTimer: Math.random() * 0.8
+      };
+    }
+    return enemy;
+  }
+
+  function isOccupied(x, y) {
+    for (const o of occupied) {
+      if (Math.hypot(o.x - x, o.y - y) < 1.0) return true;
+    }
+    return false;
+  }
+
+  // Spawn Krabbes first
+  for (let i = 0; i < krabbeCount; i++) {
+    if (i === 0 && Math.random() < closeChance) {
+      for (const c of sortedByDist) {
+        if (!isOccupied(c.x, c.y)) {
+          const e = createEnemy('krabbe', c.x, c.y);
+          enemies.push(e);
+          occupied.push({ x: c.x, y: c.y });
+          break;
+        }
+      }
+      continue;
+    }
+    const farthestFirst = [...sortedByDist].reverse();
+    for (const c of farthestFirst) {
+      if (!isOccupied(c.x, c.y)) {
+        const e = createEnemy('krabbe', c.x, c.y);
+        enemies.push(e);
+        occupied.push({ x: c.x, y: c.y });
+        break;
+      }
+    }
+  }
+
+  // Spawn Bulwarks
+  for (let i = 0; i < bulwarkCount; i++) {
+    const farthestFirst = [...sortedByDist].reverse();
+    for (const c of farthestFirst) {
+      if (!isOccupied(c.x, c.y)) {
+        const e = createEnemy('bulwark', c.x, c.y);
+        enemies.push(e);
+        occupied.push({ x: c.x, y: c.y });
+        break;
+      }
+    }
+  }
+
+  // Spawn Skytters
+  for (let i = 0; i < skytterCount; i++) {
+    const farthestFirst = [...sortedByDist].reverse();
+    for (const c of farthestFirst) {
+      if (!isOccupied(c.x, c.y)) {
+        const e = createEnemy('skytter', c.x, c.y);
+        enemies.push(e);
+        occupied.push({ x: c.x, y: c.y });
+        break;
+      }
+    }
+  }
+
+  room.spawnedEnemies = true;
+}
+
+// ═══════════════════════════════════════════════════════
+//  PHYSICS (movement + enemy update)
+// ═══════════════════════════════════════════════════════
+const JOY = { on:false, x:0, y:0 };
+
+function update(dt) {
+  if (gamePaused) return;
+  
+  // Auto-fire frame-synced (pistol + AR)
+  if (autoFireActive && !playerDead) {
+    const now = performance.now() / 1000;
+    const cd = [PISTOL_COOLDOWN, AR_COOLDOWN, SNIPER_COOLDOWN][currentWeapon];
+    if (now - lastFireTime >= cd) {
+      fireWeapon();
+    }
+  }
+
+  if (playerDead) {
+    const now = performance.now() / 1000;
+    if ((now - deathTimestamp / 1000) >= DEATH_BLOOD_DUR && !deathScreen.classList.contains('active')) {
+      deathScreen.classList.add('active');
+    }
+    return;
+  }
+
+  const d = Math.min(dt, 0.05);
+  let fwd = ((K['KeyW']||K['ArrowUp'])?1:0)    - ((K['KeyS']||K['ArrowDown'])?1:0);
+  let str = ((K['KeyD']||K['ArrowRight'])?1:0) - ((K['KeyA']||K['ArrowLeft'])?1:0);
+  if (JOY.on) { fwd += JOY.y; str += JOY.x; }
+  const ca = Math.cos(P.a), sa = Math.sin(P.a);
+  const dvx = fwd*ca - str*sa, dvy = fwd*sa + str*ca;
+  const dLen = Math.sqrt(dvx*dvx + dvy*dvy);
+  if (dLen > 0.01) {
+    const tx = dvx*MAX_SPEED, ty = dvy*MAX_SPEED;
+    const ex = tx-P.vx, ey = ty-P.vy;
+    const eLen = Math.sqrt(ex*ex + ey*ey);
+    const step = MOVE_ACCEL * d;
+    if (eLen <= step) { P.vx=tx; P.vy=ty; }
+    else { P.vx += ex/eLen*step; P.vy += ey/eLen*step; }
+  } else {
+    const spd = Math.sqrt(P.vx*P.vx + P.vy*P.vy);
+    const step = MOVE_DECEL * d;
+    if (spd <= step) { P.vx=0; P.vy=0; }
+    else { P.vx -= P.vx/spd*step; P.vy -= P.vy/spd*step; }
+  }
+  applyMove(P.x + P.vx*d, P.y + P.vy*d);
+  nudgeOutOfWalls();
+  pushOutOfEnemies();
+
+  // Update enemy AI
+  for (const enemy of enemies) {
+    if (enemy.alive) updateEnemyAI(enemy, d);
+  }
+  // Push enemies apart
+  pushEnemiesApart();
+
+  // Update projectiles
+  updateProjectiles(d);
+
+  // Prune dead enemies periodically
+  if (enemies.length > 250) {
+    enemies = enemies.filter(e => e.alive);
+  }
+
+  // Check for room clearing (natural)
+  for (const [key, room] of roomMap) {
+    if (room.type !== 'arena' && room.type !== 'gauntlet') continue;
+    if (!room.spawnedEnemies || room.cleared) continue;
+    const alive = enemies.some(e => e.alive && e.homeGX === room.gridX && e.homeGY === room.gridY);
+    if (!alive) {
+      room.cleared = true;
+      try { roomClearSound.currentTime = 0; roomClearSound.play(); } catch(e) {}
+      unlockSidewaysOutward(room.gridX, room.gridY);
+      console.log('Room cleared naturally:', room.gridX, room.gridY);
+      if (room.ring === maxRingGenerated) {
+        generateNextRingIfNeeded();
+      }
+    }
+  }
+
+  // Room entry / ring logic
+  const tx = Math.floor(P.x), ty = Math.floor(P.y);
+  const room = getRoomAtTile(tx, ty);
+  if (room) {
+    currentRing = room.ring;
+    const gx = room.gridX, gy = room.gridY;
+    if (gx !== playerRoomGX || gy !== playerRoomGY) {
+      if (pendingLockGX >= 0) {
+        pendingLockGX = -1;
+        pendingLockGY = -1;
+        roomEntryTimer = 0;
+      }
+      playerRoomGX = gx;
+      playerRoomGY = gy;
+      generateNextRingIfNeeded();
+
+      if (!room.entered && room.ring > 0) {
+        pendingLockGX = gx;
+        pendingLockGY = gy;
+        roomEntryTimer = ROOM_LOCK_DELAY;
+        room.entered = true;
+
+        if (room.type === 'cache' && !room.cacheGenerated) {
+          room.cacheGenerated = true;
+          const items = generateCachePickups(room);
+          const centerX = gx * CELL_SIZE + MID + 0.5;
+          const centerY = gy * CELL_SIZE + MID + 0.5;
+          interactables.push({ x: centerX, y: centerY, type: 'cache_loot', items });
+        }
+      }
+    }
+  }
+
+  if (pendingLockGX >= 0) {
+    roomEntryTimer -= d;
+    if (roomEntryTimer <= 0) {
+      const currentRoom = getRoomAtTile(P.x | 0, P.y | 0);
+      if (currentRoom && currentRoom.gridX === pendingLockGX && currentRoom.gridY === pendingLockGY) {
+        lockAllDoors(pendingLockGX, pendingLockGY);
+        if ((currentRoom.type === 'arena' || currentRoom.type === 'gauntlet') && !currentRoom.spawnedEnemies) {
+          spawnRoomEnemies(currentRoom);
+        }
+      }
+      pendingLockGX = -1;
+      pendingLockGY = -1;
+      roomEntryTimer = 0;
+    }
+  }
+
+  for (let i = tracers.length - 1; i >= 0; i--) {
+    tracers[i].life -= dt * 4;
+    if (tracers[i].life <= 0) tracers.splice(i, 1);
+  }
+
+  const prevActive = activeInteractable;
+  activeInteractable = null;
+  for (const inter of interactables) {
+    const dx = inter.x - P.x;
+    const dy = inter.y - P.y;
+    if (Math.sqrt(dx*dx + dy*dy) < 1.8) {
+      activeInteractable = inter;
+      break;
+    }
+  }
+  if (activeInteractable !== prevActive) {
+    interactBtn.style.display = activeInteractable ? 'flex' : 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  WEAPON SYSTEM
+// ═══════════════════════════════════════════════════════
+let currentWeapon = 0;
+
+function fireWeapon() {
+  if (gamePaused || playerDead) return;
+  const now = performance.now() / 1000;
+  const cd = [PISTOL_COOLDOWN, AR_COOLDOWN, SNIPER_COOLDOWN][currentWeapon];
+  if (now - lastFireTime < cd) return;
+  if (ammo[currentWeapon] <= 0) return;
+
+  ammo[currentWeapon]--;
+  updateAmmoDisplay();
+  lastFireTime = now;
+
+  const rc = Math.cos(P.a), rs = Math.sin(P.a);
+  const ray = castRay(P.a);
+  const wallDist = ray.dist;
+  const hit = getEnemyHit(P.a, wallDist);
+  let hitDist = wallDist;
+  if (hit) {
+    hitDist = hit.dist;
+    const dmg = [PISTOL_DAMAGE, AR_DAMAGE, SNIPER_DAMAGE][currentWeapon];
+    damageEnemy(hit.enemy, dmg, currentWeapon);
+    if (currentWeapon === 0 && hit.enemy.type !== 'skytter') {
+      hit.enemy.slowMultiplier = 0.625;
+      hit.enemy.slowTimer = 0.5;
+    }
+  }
+
+  const endX = P.x + rc * hitDist;
+  const endY = P.y + rs * hitDist;
+  let color, outline = null;
+  if (currentWeapon === 0) {
+    color = '#3355cc';
+    try { pistolShotSound.currentTime = 0; pistolShotSound.play(); } catch(e) {}
+  } else if (currentWeapon === 1) {
+    color = '#aa44ff';
+    if (audioCtx) playGungnir_Shot();
+  } else if (currentWeapon === 2) {
+    color = '#ffff00'; outline = '#00ccff';
+    try { sniperShotSound.currentTime = 0; sniperShotSound.play(); } catch(e) {}
+    setTimeout(() => {
+      if (!playerDead) {
+        try { boltActionSound.currentTime = 0; boltActionSound.play(); } catch(e) {}
+      }
+    }, 300);
+  }
+
+  const cameraX = CW / 2;
+  const cameraY = CH / 2 + P.pitch;
+  const startScreenX = cameraX;
+  const startScreenY = cameraY;
+  const endScreenX = cameraX + (endX - P.x) * (CW / (2 * Math.tan(HALF_HFOV))) / (hitDist || 1);
+  const endScreenY = cameraY + (endY - P.y) * (CW / (2 * Math.tan(HALF_HFOV))) / (hitDist || 1);
+
+  tracers.push({
+    x1: startScreenX, y1: startScreenY,
+    x2: endScreenX, y2: endScreenY,
+    color, outline,
+    life: 1.0
+  });
+}
+
+function startAutoFire() {
+  if (currentWeapon === 2 || ammo[currentWeapon] <= 0 || playerDead) return;
+  if (autoFireActive) return;
+  autoFireActive = true;
+  fireWeapon();
+}
+
+function stopAutoFire() {
+  autoFireActive = false;
+}
+
+function updateAmmoDisplay() {
+  const counts = document.querySelectorAll('.ammo-count');
+  if (counts.length >= 3) {
+    counts[0].textContent = ammo[0];
+    counts[1].textContent = ammo[1];
+    counts[2].textContent = ammo[2];
+  }
+}
+
+// Fire button events
+fireBtn.addEventListener('mousedown', e => {
+  e.stopPropagation();
+  if (playerDead) return;
+  if (currentWeapon === 2) fireWeapon();
+  else startAutoFire();
+});
+fireBtn.addEventListener('mouseup', e => {
+  stopAutoFire();
+});
+fireBtn.addEventListener('touchstart', e => {
+  e.stopPropagation();
+  e.preventDefault();
+  if (playerDead) return;
+  if (currentWeapon === 2) fireWeapon();
+  else startAutoFire();
+});
+fireBtn.addEventListener('touchend', e => {
+  stopAutoFire();
+});
+
+// Weapon selection
+const weaponBoxes = document.querySelectorAll('.weapon-box');
+function selectWeapon(idx) {
+  if (playerDead) return;
+  if (idx < 0 || idx > 2) return;
+  currentWeapon = idx;
+  weaponBoxes.forEach((box, i) => {
+    if (i === idx) box.classList.add('selected');
+    else box.classList.remove('selected');
+  });
+  stopAutoFire();
+}
+
+weaponBoxes.forEach((box, idx) => {
+  box.addEventListener('click', e => { e.stopPropagation(); selectWeapon(idx); });
+  box.addEventListener('touchend', e => { e.stopPropagation(); e.preventDefault(); lookTouchId = null; selectWeapon(idx); });
+});
+
+window.addEventListener('keydown', e => {
+  if (playerDead) return;
+  if (e.code === 'Digit1') selectWeapon(0);
+  if (e.code === 'Digit2') selectWeapon(1);
+  if (e.code === 'Digit3') selectWeapon(2);
+});
+
+// Gamepad
+let prevGamepadButtons = {};
+function pollGamepad() {
+  if (playerDead) {
+    requestAnimationFrame(pollGamepad);
+    return;
+  }
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const pad of pads) {
+    if (!pad) continue;
+    const lb = pad.buttons[4]?.pressed;
+    const rb = pad.buttons[5]?.pressed;
+    const rt = pad.buttons[7]?.value > 0.5;
+    const key = pad.index;
+    const prev = prevGamepadButtons[key] || {};
+    if (lb && !prev.lb) selectWeapon(Math.max(0, currentWeapon - 1));
+    if (rb && !prev.rb) selectWeapon(Math.min(2, currentWeapon + 1));
+    if (rt && !prev.rt) {
+      if (currentWeapon === 2) fireWeapon();
+      else startAutoFire();
+    }
+    if (!rt && prev.rt) { stopAutoFire(); }
+    prevGamepadButtons[key] = { lb, rb, rt };
+  }
+  requestAnimationFrame(pollGamepad);
+}
+requestAnimationFrame(pollGamepad);
+
+// ═══════════════════════════════════════════════════════
+//  TOUCH
+// ═══════════════════════════════════════════════════════
+const JOYSTICK_RADIUS   = 48;
+const JOYSTICK_DEADZONE = 6;
+let joyTouchId = null, joyOffX = 0, joyOffY = 0;
+let lookTouchId = null, lookPrevX = 0, lookPrevY = 0;
+
+function cPos(touch) {
+  const r = container.getBoundingClientRect();
+  return { x: touch.clientX - r.left, y: touch.clientY - r.top };
+}
+function inJoyZone(touch) {
+  const p=cPos(touch), zr=joystickZone.getBoundingClientRect(), cr=container.getBoundingClientRect();
+  const ex=28;
+  return p.x>=(zr.left-cr.left)-ex && p.x<=(zr.left-cr.left)+zr.width+ex
+      && p.y>=(zr.top-cr.top)-ex  && p.y<=(zr.top-cr.top)+zr.height+ex;
+}
+function inLookZone(touch) {
+  const p=cPos(touch), cr=container.getBoundingClientRect();
+  return p.x >= cr.width/2;
+}
+function joyCenter() {
+  const zr=joystickZone.getBoundingClientRect(), cr=container.getBoundingClientRect();
+  return { cx:zr.left-cr.left+zr.width/2, cy:zr.top-cr.top+zr.height/2 };
+}
+function updateJoyThumb() {
+  if (joyTouchId===null) {
+    joystickThumb.style.transform='translate(-50%,-50%)';
+    JOY.on=false; JOY.x=0; JOY.y=0; return;
+  }
+  const mag=Math.sqrt(joyOffX*joyOffX+joyOffY*joyOffY);
+  const cap=Math.min(mag,JOYSTICK_RADIUS), s=mag>0?cap/mag:0;
+  joystickThumb.style.transform=`translate(calc(-50% + ${joyOffX*s}px),calc(-50% + ${joyOffY*s}px))`;
+  if (mag > JOYSTICK_DEADZONE) {
+    const norm=Math.min(mag,JOYSTICK_RADIUS);
+    JOY.on=true; JOY.x=joyOffX/norm; JOY.y=-joyOffY/norm;
+  } else { JOY.on=false; JOY.x=0; JOY.y=0; }
+}
+
+container.addEventListener('touchstart', e => {
+  if (gamePaused || playerDead) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (joyTouchId===null && inJoyZone(t)) {
+      joyTouchId=t.identifier;
+      const p=cPos(t), c=joyCenter();
+      joyOffX=p.x-c.cx; joyOffY=p.y-c.cy;
+      updateJoyThumb(); continue;
+    }
+    if (lookTouchId===null && (inLookZone(t)||!inJoyZone(t))) {
+      lookTouchId=t.identifier;
+      const p=cPos(t); lookPrevX=p.x; lookPrevY=p.y;
+    }
+  }
+},{ passive:false });
+
+container.addEventListener('touchmove', e => {
+  if (gamePaused || playerDead) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (t.identifier===joyTouchId) {
+      const p=cPos(t), c=joyCenter();
+      joyOffX=p.x-c.cx; joyOffY=p.y-c.cy;
+      const mag=Math.sqrt(joyOffX*joyOffX+joyOffY*joyOffY);
+      if (mag>JOYSTICK_RADIUS){joyOffX=joyOffX/mag*JOYSTICK_RADIUS;joyOffY=joyOffY/mag*JOYSTICK_RADIUS;}
+      updateJoyThumb();
+    }
+    if (t.identifier===lookTouchId) {
+      const p=cPos(t);
+      P.a     += (p.x-lookPrevX) * MOUSE_H_SENS * sensitivityMult;
+      P.pitch -= (p.y-lookPrevY) * MOUSE_V_SENS * sensitivityMult;
+      P.pitch  = Math.max(-PITCH_LIMIT,Math.min(PITCH_LIMIT,P.pitch));
+      lookPrevX=p.x; lookPrevY=p.y;
+    }
+  }
+},{ passive:false });
+
+function handleTouchEnd(e) {
+  for (const t of e.changedTouches) {
+    if (t.identifier===joyTouchId)  { joyTouchId=null; joyOffX=0; joyOffY=0; updateJoyThumb(); }
+    if (t.identifier===lookTouchId) { lookTouchId=null; }
+  }
+}
+container.addEventListener('touchend',    e=>{e.preventDefault();handleTouchEnd(e);});
+container.addEventListener('touchcancel', e=>{handleTouchEnd(e);});
+window.addEventListener('touchend',    e=>{handleTouchEnd(e);});
+window.addEventListener('touchcancel', e=>{handleTouchEnd(e);});
+window.addEventListener('touchend',    e=>{handleTouchEnd(e);});
+window.addEventListener('touchcancel', e=>{handleTouchEnd(e);});
+
+// ═══════════════════════════════════════════════════════
+//  MENU
+// ═══════════════════════════════════════════════════════
+function openMenu()  {
+  if(gamePaused || playerDead) return;
+  gamePaused=true;
+  pauseMenuEl.classList.add('open');
+  if(pointerLocked) document.exitPointerLock();
+  lookTouchId = null;
+}
+function closeMenu() {
+  if(!gamePaused) return;
+  gamePaused=false;
+  pauseMenuEl.classList.remove('open');
+  lookTouchId = null;
+}
+function toggleMenu(){ gamePaused ? closeMenu() : openMenu(); }
+
+menuBtnEl.addEventListener('click',    e=>{e.stopPropagation();toggleMenu();});
+menuBtnEl.addEventListener('touchend', e=>{e.stopPropagation();e.preventDefault();lookTouchId = null;toggleMenu();});
+resumeBtnEl.addEventListener('click',    e=>{e.preventDefault();lookTouchId = null;closeMenu();});
+resumeBtnEl.addEventListener('touchend', e=>{e.preventDefault();lookTouchId = null;closeMenu();});
+sensSlider.addEventListener('input', ()=>{ sensitivityMult=parseFloat(sensSlider.value); });
+
+function flashBtn(el) {
+  el.style.background = 'rgba(255,255,255,0.25)';
+  setTimeout(() => { el.style.background = ''; }, 120);
+}
+
+debugBtnEl.addEventListener('click', e => {
+  e.preventDefault();
+  lookTouchId = null;
+  closeMenu();
+  debugMenuEl.classList.add('open');
+  gamePaused = true;
+});
+debugBtnEl.addEventListener('touchend', e => {
+  e.preventDefault();
+  lookTouchId = null;
+  closeMenu();
+  debugMenuEl.classList.add('open');
+  gamePaused = true;
+});
+
+const unstuckBtnEl = document.getElementById('unstuck-btn');
+unstuckBtnEl.addEventListener('click', e => {
+  e.preventDefault();
+  lookTouchId = null;
+  const room = roomMap.get(`${playerRoomGX},${playerRoomGY}`);
+  if (room) {
+    const cx = room.gridX * CELL_SIZE + MID + 0.5;
+    const cy = room.gridY * CELL_SIZE + MID + 0.5;
+    P.x = cx; P.y = cy; P.vx = 0; P.vy = 0;
+  }
+  closeMenu();
+});
+unstuckBtnEl.addEventListener('touchend', e => {
+  e.preventDefault();
+  lookTouchId = null;
+  const room = roomMap.get(`${playerRoomGX},${playerRoomGY}`);
+  if (room) {
+    const cx = room.gridX * CELL_SIZE + MID + 0.5;
+    const cy = room.gridY * CELL_SIZE + MID + 0.5;
+    P.x = cx; P.y = cy; P.vx = 0; P.vy = 0;
+  }
+  closeMenu();
+});
+
+function debugClearRoom() {
+  const room = roomMap.get(`${playerRoomGX},${playerRoomGY}`);
+  if (!room || room.ring <= 0) {
+    console.log('DEBUG: cannot clear ring 0 room.');
+    return;
+  }
+  room.cleared = true;
+  if (room.type !== 'cache') {
+    try { roomClearSound.currentTime = 0; roomClearSound.play(); } catch(e) {}
+  }
+  unlockSidewaysOutward(playerRoomGX, playerRoomGY);
+  console.log('DEBUG: room cleared.');
+}
+
+function debugSpawnKrabbe() {
+  const gx = playerRoomGX, gy = playerRoomGY;
+  const roomLeft = gx * CELL_SIZE + 1;
+  const roomTop = gy * CELL_SIZE + 1;
+  const roomRight = roomLeft + INTERIOR_SZ - 1;
+  const roomBottom = roomTop + INTERIOR_SZ - 1;
+  const corners = [
+    {x: roomLeft + 0.5, y: roomTop + 0.5},
+    {x: roomRight - 0.5, y: roomTop + 0.5},
+    {x: roomLeft + 0.5, y: roomBottom - 0.5},
+    {x: roomRight - 0.5, y: roomBottom - 0.5}
+  ];
+  let bestCorner = corners[0];
+  let maxDist = 0;
+  for (const c of corners) {
+    const dx = c.x - P.x, dy = c.y - P.y;
+    const d = dx*dx + dy*dy;
+    if (d > maxDist) { maxDist = d; bestCorner = c; }
+  }
+  const spawnX = Math.max(roomLeft + 1.1, Math.min(roomRight - 1.1, bestCorner.x));
+  const spawnY = Math.max(roomTop + 1.1, Math.min(roomBottom - 1.1, bestCorner.y));
+
+  enemies.push({
+    x: spawnX, y: spawnY,
+    hp: KRABBE_HP, maxHp: KRABBE_HP, armor: 0,
+    type: 'krabbe', sprite: krabbeImg,
+    alive: true, state: 'chase', targetAngle: 0,
+    lastAttackTime: 0, slowMultiplier: 1, slowTimer: 0,
+    attackCooldown: 0, windupTimer: 0,
+    scoreValue: KRABBE_SCORE,
+    homeGX: gx, homeGY: gy,
+    spriteTimer: Math.random() * 0.8
+  });
+  console.log('DEBUG: Krabbe spawned in corner of room');
+}
+
+function debugSpawnBulwark() {
+  const gx = playerRoomGX, gy = playerRoomGY;
+  const roomLeft = gx * CELL_SIZE + 1;
+  const roomTop = gy * CELL_SIZE + 1;
+  const roomRight = roomLeft + INTERIOR_SZ - 1;
+  const roomBottom = roomTop + INTERIOR_SZ - 1;
+  const corners = [
+    {x: roomLeft + 0.5, y: roomTop + 0.5},
+    {x: roomRight - 0.5, y: roomTop + 0.5},
+    {x: roomLeft + 0.5, y: roomBottom - 0.5},
+    {x: roomRight - 0.5, y: roomBottom - 0.5}
+  ];
+  let bestCorner = corners[0];
+  let maxDist = 0;
+  for (const c of corners) {
+    const dx = c.x - P.x, dy = c.y - P.y;
+    const d = dx*dx + dy*dy;
+    if (d > maxDist) { maxDist = d; bestCorner = c; }
+  }
+  const spawnX = Math.max(roomLeft + 1.1, Math.min(roomRight - 1.1, bestCorner.x));
+  const spawnY = Math.max(roomTop + 1.1, Math.min(roomBottom - 1.1, bestCorner.y));
+
+  enemies.push({
+    x: spawnX, y: spawnY,
+    hp: BULWARK_HP, maxHp: BULWARK_HP, armor: BULWARK_ARMOR,
+    type: 'bulwark', sprite: bulwarkImg,
+    alive: true, state: 'chase', targetAngle: 0,
+    lastAttackTime: 0, slowMultiplier: 1, slowTimer: 0,
+    attackCooldown: 0, windupTimer: 0,
+    scoreValue: BULWARK_SCORE,
+    homeGX: gx, homeGY: gy,
+    spriteTimer: Math.random() * 0.8
+  });
+  console.log('DEBUG: Bulwark spawned in corner of room');
+}
+
+function debugSpawnSkytter() {
+  const gx = playerRoomGX, gy = playerRoomGY;
+  const roomLeft = gx * CELL_SIZE + 1;
+  const roomTop = gy * CELL_SIZE + 1;
+  const roomRight = roomLeft + INTERIOR_SZ - 1;
+  const roomBottom = roomTop + INTERIOR_SZ - 1;
+  const corners = [
+    {x: roomLeft + 0.5, y: roomTop + 0.5},
+    {x: roomRight - 0.5, y: roomTop + 0.5},
+    {x: roomLeft + 0.5, y: roomBottom - 0.5},
+    {x: roomRight - 0.5, y: roomBottom - 0.5}
+  ];
+  let bestCorner = corners[0];
+  let maxDist = 0;
+  for (const c of corners) {
+    const dx = c.x - P.x, dy = c.y - P.y;
+    const d = dx*dx + dy*dy;
+    if (d > maxDist) { maxDist = d; bestCorner = c; }
+  }
+  const spawnX = Math.max(roomLeft + 1.1, Math.min(roomRight - 1.1, bestCorner.x));
+  const spawnY = Math.max(roomTop + 1.1, Math.min(roomBottom - 1.1, bestCorner.y));
+
+  enemies.push({
+    x: spawnX, y: spawnY,
+    hp: SKYTTER_HP, maxHp: SKYTTER_HP, armor: SKYTTER_ARMOR,
+    type: 'skytter', sprite: skytterImg,
+    alive: true, state: 'approach',
+    slowMultiplier: 1, slowTimer: 0,
+    attackCooldown: 1.0,
+    windupTimer: 0,
+    aimTargetX: 0, aimTargetY: 0,
+    scoreValue: SKYTTER_SCORE,
+    homeGX: gx, homeGY: gy,
+    spriteTimer: Math.random() * 0.8
+  });
+  console.log('DEBUG: Skytter spawned in corner of room');
+}
+
+
+dbgClear.addEventListener('click', e => { flashBtn(e.currentTarget); debugClearRoom(); });
+dbgClear.addEventListener('touchend', (e) => { e.preventDefault(); flashBtn(e.currentTarget); debugClearRoom(); });
+
+dbgSpawn.addEventListener('click', e => { flashBtn(e.currentTarget); debugSpawnKrabbe(); });
+dbgSpawn.addEventListener('touchend', (e) => { e.preventDefault(); flashBtn(e.currentTarget); debugSpawnKrabbe(); });
+
+dbgSpawnBulwark.addEventListener('click', e => { flashBtn(e.currentTarget); debugSpawnBulwark(); });
+dbgSpawnBulwark.addEventListener('touchend', (e) => { e.preventDefault(); flashBtn(e.currentTarget); debugSpawnBulwark(); });
+
+dbgSpawnSkytter.addEventListener('click', e => { flashBtn(e.currentTarget); debugSpawnSkytter(); });
+dbgSpawnSkytter.addEventListener('touchend', (e) => { e.preventDefault(); flashBtn(e.currentTarget); debugSpawnSkytter(); });
+
+dbgBack.addEventListener('click', e => {
+  flashBtn(e.currentTarget);
+  lookTouchId = null;
+  debugMenuEl.classList.remove('open');
+  pauseMenuEl.classList.add('open');
+});
+dbgBack.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  flashBtn(e.currentTarget);
+  lookTouchId = null;
+  debugMenuEl.classList.remove('open');
+  pauseMenuEl.classList.add('open');
+});
+
+// ═══════════════════════════════════════════════════════
+//  RESPAWN (full game reset)
+// ═══════════════════════════════════════════════════════
+function resetGame() {
+  playerHP = 100;
+  playerArmor = 100;
+  score = 0;
+  krabbesKilled = 0;
+  bulwarksKilled = 0;
+  skyttersKilled = 0;
+  currentRing = 0;
+  playerDead = false;
+  deathTimestamp = 0;
+  deathDrips = [];
+
+  ammo = [8, 15, 4];
+  lastFireTime = 0;
+  stopAutoFire();
+  tracers = [];
+  projectiles = [];
+  currentWeapon = 0;
+  weaponBoxes.forEach((box, i) => {
+    if (i === 0) box.classList.add('selected');
+    else box.classList.remove('selected');
+  });
+  updateAmmoDisplay();
+
+  P.vx = 0; P.vy = 0;
+  const startRoomGX = CENTER_GX, startRoomGY = CENTER_GY;
+  const startTileX = startRoomGX * CELL_SIZE + MID;
+  const startTileY = startRoomGY * CELL_SIZE + MID;
+  P.x = startTileX + 0.5;
+  P.y = startTileY + 0.5;
+  P.a = 0.0;
+  P.pitch = 0;
+  playerRoomGX = CENTER_GX;
+  playerRoomGY = CENTER_GY;
+
+  enemies = [];
+  interactables = [];
+  activeInteractable = null;
+  interactBtn.style.display = 'none';
+  popupMessages = [];
+
+  roomMap.clear();
+  mapTiles.clear();
+  generateRoomsForRing(0);
+  generateRoomsForRing(1);
+  maxRingGenerated = 1;
+
+  pendingLockGX = -1;
+  pendingLockGY = -1;
+  roomEntryTimer = 0;
+
+  canvas.classList.remove('dead');
+  deathScreen.classList.remove('active');
+  const ds = document.getElementById('death-score');
+  if (ds) ds.textContent = 'Score 0';
+
+  if (pointerLocked) document.exitPointerLock();
+
+  if (isMobile || hasTouch) {
+    clickPrompt.classList.add('hidden');
+  } else {
+    clickPrompt.classList.remove('hidden');
+  }
+
+  console.log('Game reset');
+}
+
+respawnBtn.addEventListener('click', () => { lookTouchId = null; resetGame(); });
+respawnBtn.addEventListener('touchend', (e) => { e.preventDefault(); lookTouchId = null; resetGame(); });
+
+// ═══════════════════════════════════════════════════════
+//  ORIENTATION
+// ═══════════════════════════════════════════════════════
+function checkOrientation() {
+  rotateWarn.classList.toggle('active', isMobile && window.innerWidth < window.innerHeight);
+}
+window.addEventListener('resize', checkOrientation);
+window.addEventListener('orientationchange', ()=>setTimeout(checkOrientation,150));
+
+// ═══════════════════════════════════════════════════════
+//  GAME LOOP
+// ═══════════════════════════════════════════════════════
+let prevTs = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = Math.min((ts-prevTs)/1000, 0.05);
+  prevTs = ts;
+  update(dt);
+  render();
+  drawMinimap();
+  drawHUD();
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+(function init(){
+  generateRoomsForRing(0);
+  generateRoomsForRing(1);
+  maxRingGenerated = 1;
+
+  const startRoomGX = CENTER_GX, startRoomGY = CENTER_GY;
+  const startTileX = startRoomGX * CELL_SIZE + MID;
+  const startTileY = startRoomGY * CELL_SIZE + MID;
+  P.x = startTileX + 0.5;
+  P.y = startTileY + 0.5;
+  playerRoomGX = CENTER_GX;
+  playerRoomGY = CENTER_GY;
+
+  fireBtn.style.display = isMobile ? 'flex' : 'none';
+  interactBtn.style.display = 'none';
+
+  if (isMobile || hasTouch) {
+    joystickZone.classList.add('active');
+    lookZoneEl.classList.add('active');
+    clickPrompt.classList.add('hidden');
+  } else {
+    clickPrompt.classList.remove('hidden');
+  }
+  updateAmmoDisplay();
+  checkOrientation();
+  requestAnimationFrame(ts=>{ prevTs=ts; requestAnimationFrame(loop); });
+  document.addEventListener('click', initAudioIfNeeded, { once: true });
+  document.addEventListener('touchend', initAudioIfNeeded, { once: true });
+  console.log('STAHLMARK – Skytter enemy added. Infinite rings enabled.');
+})();
+</script>
+</body>
+</html>
