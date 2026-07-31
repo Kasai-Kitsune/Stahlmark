@@ -29,7 +29,7 @@ A wireframe raycaster FPS. Quake-esque movement on a Wolfenstein-esque-style eng
 - Procedurally generated infinite ring-based room grid (start room, arenas, caches, ambushes, gauntlets, dark rooms)
 - Ring lock system: clearing a ring locks the door back to the previous ring
 - Hitscan firing
-- Four enemy types (Krabbe, Bulwark, Skytter, Nachzehrer) with distinct behaviors, including a teleporting leash-and-ambush stalker (Nachzehrer, very buggy) that deals fixed, armor-piercing bite damage
+- Four enemy types (Krabbe, Bulwark, Skytter, Nachzehrer) with distinct behaviors, including a teleporting leash(the leash is invisible, it's an internal mechanic)-and-ambush stalker (Nachzehrer, very buggy) that deals fixed, armor-piercing bite damage
 - Cache room loot generation with a weighted budget system (ammo, health, armor pickups scaled by rarity/cost)
 - In-game debug menu (room clear + enemy spawning)
 - Weapon switching and ammo system
