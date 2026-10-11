@@ -41,9 +41,3 @@ A wireframe raycaster FPS. Quake-esque movement on a Wolfenstein-esque-style eng
 - Black fill on every object first, colored edge lines on top.
 - Weapons sit on an impact-vs-penetration axis: Nåde (pistol) staggers (slows) everything and penetrates nothing, Klarhet (sniper) penetrates everything and staggers nothing, Gungnir (Bullpup AR) splits the difference. Enemy size determines which weapon is the right call.
 - No ADS, no headshots, no 3D weapon models. Everything is hitscan with 2D side-profile HUD sprites.
-
----
-
-## Notes
-
-This is a solo hobby project and a worldbuilding tie-in to my personal Stahlmark setting. Structure, balance, and content may shift a lot during pre-alpha.
